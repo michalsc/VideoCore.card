@@ -274,7 +274,7 @@ static int FindCard(struct BoardInfo* bi asm("a0"), struct VC4Base *VC4Base asm(
             if (_strcmp("brcm,bcm2711-vc5", comp) == 0)
             {
                 bug("[VC] VideoCore6 detected\n");
-                VC4Base->vc4_VideoCore6 = 0;
+                VC4Base->vc4_VideoCore6 = 1;
             }
         }
     }
@@ -319,10 +319,16 @@ static void vc4_Task()
                         case VCMD_SET_KERNEL:
                             kernel_start ^= 0x10;
                             if (vmsg->SetKernel.kernel) {
-                                compute_scaling_kernel((uint32_t *)0xf2402000, vmsg->SetKernel.b, vmsg->SetKernel.c);
+                                if (VC4Base->vc4_VideoCore6)
+                                    compute_scaling_kernel((uint32_t *)0xf2404000, vmsg->SetKernel.b, vmsg->SetKernel.c);
+                                else
+                                    compute_scaling_kernel((uint32_t *)0xf2402000, vmsg->SetKernel.b, vmsg->SetKernel.c);
                             }
                             else {
-                                compute_nearest_neighbour_kernel((uint32_t *)0xf2402000);
+                                if (VC4Base->vc4_VideoCore6)
+                                    compute_nearest_neighbour_kernel((uint32_t *)0xf2404000);
+                                else
+                                    compute_nearest_neighbour_kernel((uint32_t *)0xf2402000);
                             }
                             if (VC4Base->vc4_Kernel)
                             {
@@ -752,11 +758,20 @@ static int InitCard(struct BoardInfo* bi asm("a0"), const char **ToolTypes asm("
     }
 
     if (VC4Base->vc4_UseKernel)
-        compute_scaling_kernel((uint32_t *)0xf2402000, VC4Base->vc4_Kernel_B, VC4Base->vc4_Kernel_C);
+        if (VC4Base->vc4_VideoCore6)
+            compute_scaling_kernel((uint32_t *)0xf2404000, VC4Base->vc4_Kernel_B, VC4Base->vc4_Kernel_C);
+        else
+            compute_scaling_kernel((uint32_t *)0xf2402000, VC4Base->vc4_Kernel_B, VC4Base->vc4_Kernel_C);
     else
-        compute_nearest_neighbour_kernel((uint32_t *)0xf2402000);
+        if (VC4Base->vc4_VideoCore6)
+            compute_nearest_neighbour_kernel((uint32_t *)0xf2404000);
+        else
+            compute_nearest_neighbour_kernel((uint32_t *)0xf2402000);
 
-    compute_nearest_neighbour_kernel(((uint32_t *)0xf2402000) - kernel_start + unity_kernel);
+    if (VC4Base->vc4_VideoCore6)
+        compute_nearest_neighbour_kernel(((uint32_t *)0xf2404000) - kernel_start + unity_kernel);
+    else
+        compute_nearest_neighbour_kernel(((uint32_t *)0xf2402000) - kernel_start + unity_kernel);
 
     VC4Base->vc4_Task = NewCreateTask(
         TASKTAG_PC,         (Tag)vc4_Task,

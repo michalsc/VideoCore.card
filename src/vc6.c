@@ -5,7 +5,7 @@
 #include <proto/exec.h>
 
 #include "emu68-vc4.h"
-#include "vc4.h"
+#include "vc6.h"
 #include "boardinfo.h"
 #include "mbox.h"
 
@@ -112,24 +112,24 @@ UWORD VC6_SetSwitch(struct BoardInfo *b asm("a0"), UWORD enabled asm("d0"))
 
 
 static const ULONG mode_table[] = {
-    [RGBFB_A8R8G8B8] = CONTROL_FORMAT(HVS_PIXEL_FORMAT_RGBA8888) | CONTROL_PIXEL_ORDER(HVS_PIXEL_ORDER_RGBA),
-    [RGBFB_A8B8G8R8] = CONTROL_FORMAT(HVS_PIXEL_FORMAT_RGBA8888) | CONTROL_PIXEL_ORDER(HVS_PIXEL_ORDER_BGRA),
-    [RGBFB_B8G8R8A8] = CONTROL_FORMAT(HVS_PIXEL_FORMAT_RGBA8888) | CONTROL_PIXEL_ORDER(HVS_PIXEL_ORDER_ABGR),
-    [RGBFB_R8G8B8A8] = CONTROL_FORMAT(HVS_PIXEL_FORMAT_RGBA8888) | CONTROL_PIXEL_ORDER(HVS_PIXEL_ORDER_ARGB),
+    [RGBFB_A8R8G8B8] = VC6_CONTROL_FORMAT(HVS_PIXEL_FORMAT_RGBA8888) | VC6_CONTROL_PIXEL_ORDER(HVS_PIXEL_ORDER_RGBA),
+    [RGBFB_A8B8G8R8] = VC6_CONTROL_FORMAT(HVS_PIXEL_FORMAT_RGBA8888) | VC6_CONTROL_PIXEL_ORDER(HVS_PIXEL_ORDER_BGRA),
+    [RGBFB_B8G8R8A8] = VC6_CONTROL_FORMAT(HVS_PIXEL_FORMAT_RGBA8888) | VC6_CONTROL_PIXEL_ORDER(HVS_PIXEL_ORDER_ARGB),
+    [RGBFB_R8G8B8A8] = VC6_CONTROL_FORMAT(HVS_PIXEL_FORMAT_RGBA8888) | VC6_CONTROL_PIXEL_ORDER(HVS_PIXEL_ORDER_ABGR),
 
-    [RGBFB_R8G8B8] = CONTROL_FORMAT(HVS_PIXEL_FORMAT_RGB888) | CONTROL_PIXEL_ORDER(HVS_PIXEL_ORDER_XBGR),
-    [RGBFB_B8G8R8] = CONTROL_FORMAT(HVS_PIXEL_FORMAT_RGB888) | CONTROL_PIXEL_ORDER(HVS_PIXEL_ORDER_XRGB),
+    [RGBFB_R8G8B8] = VC6_CONTROL_FORMAT(HVS_PIXEL_FORMAT_RGB888) | VC6_CONTROL_PIXEL_ORDER(HVS_PIXEL_ORDER_XBGR),
+    [RGBFB_B8G8R8] = VC6_CONTROL_FORMAT(HVS_PIXEL_FORMAT_RGB888) | VC6_CONTROL_PIXEL_ORDER(HVS_PIXEL_ORDER_XRGB),
 
-    [RGBFB_R5G6B5PC] = CONTROL_FORMAT(HVS_PIXEL_FORMAT_RGB565) | CONTROL_PIXEL_ORDER(HVS_PIXEL_ORDER_XRGB),
-    [RGBFB_R5G5B5PC] = CONTROL_FORMAT(HVS_PIXEL_FORMAT_RGB555) | CONTROL_PIXEL_ORDER(HVS_PIXEL_ORDER_XRGB),
+    [RGBFB_R5G6B5PC] = VC6_CONTROL_FORMAT(HVS_PIXEL_FORMAT_RGB565) | VC6_CONTROL_PIXEL_ORDER(HVS_PIXEL_ORDER_XRGB),
+    [RGBFB_R5G5B5PC] = VC6_CONTROL_FORMAT(HVS_PIXEL_FORMAT_RGB555) | VC6_CONTROL_PIXEL_ORDER(HVS_PIXEL_ORDER_XRGB),
     
-    [RGBFB_R5G6B5] = CONTROL_FORMAT(HVS_PIXEL_FORMAT_RGB565) | CONTROL_PIXEL_ORDER(HVS_PIXEL_ORDER_XRGB),
-    [RGBFB_R5G5B5] = CONTROL_FORMAT(HVS_PIXEL_FORMAT_RGB555) | CONTROL_PIXEL_ORDER(HVS_PIXEL_ORDER_XRGB),
+    [RGBFB_R5G6B5] = VC6_CONTROL_FORMAT(HVS_PIXEL_FORMAT_RGB565) | VC6_CONTROL_PIXEL_ORDER(HVS_PIXEL_ORDER_XRGB),
+    [RGBFB_R5G5B5] = VC6_CONTROL_FORMAT(HVS_PIXEL_FORMAT_RGB555) | VC6_CONTROL_PIXEL_ORDER(HVS_PIXEL_ORDER_XRGB),
     
-    [RGBFB_B5G6R5PC] = CONTROL_FORMAT(HVS_PIXEL_FORMAT_RGB565) | CONTROL_PIXEL_ORDER(HVS_PIXEL_ORDER_XBGR),
-    [RGBFB_B5G5R5PC] = CONTROL_FORMAT(HVS_PIXEL_FORMAT_RGB555) | CONTROL_PIXEL_ORDER(HVS_PIXEL_ORDER_XBGR),
+    [RGBFB_B5G6R5PC] = VC6_CONTROL_FORMAT(HVS_PIXEL_FORMAT_RGB565) | VC6_CONTROL_PIXEL_ORDER(HVS_PIXEL_ORDER_XBGR),
+    [RGBFB_B5G5R5PC] = VC6_CONTROL_FORMAT(HVS_PIXEL_FORMAT_RGB555) | VC6_CONTROL_PIXEL_ORDER(HVS_PIXEL_ORDER_XBGR),
 
-    [RGBFB_CLUT] = CONTROL_FORMAT(HVS_PIXEL_FORMAT_PALETTE) | CONTROL_PIXEL_ORDER(HVS_PIXEL_ORDER_XBGR)
+    [RGBFB_CLUT] = VC6_CONTROL_FORMAT(HVS_PIXEL_FORMAT_PALETTE) | VC6_CONTROL_PIXEL_ORDER(HVS_PIXEL_ORDER_XBGR)
 };
 
 int VC6_AllocSlot(UWORD size, struct VC4Base *VC4Base)
@@ -164,12 +164,12 @@ void VC6_SetPanning (struct BoardInfo *b asm("a0"), UBYTE *addr asm("a1"), UWORD
     ULONG calc_height = 0;
     ULONG sprite_width = 0;
     ULONG sprite_height = 0;
-    ULONG bytes_per_row = CalculateBytesPerRow(b, width, format);
+    ULONG bytes_per_row = VC6_CalculateBytesPerRow(b, width, format);
     ULONG bytes_per_pix = bytes_per_row / width;
     UWORD pos = 0;
     int offset_only = 0;
 
-    if (0) {
+    if (1) {
         bug("[VC4] SetPanning %lx %ld %ld %ld %lx\n", addr, width, x_offset, y_offset, format);
     }
 
@@ -178,7 +178,7 @@ void VC6_SetPanning (struct BoardInfo *b asm("a0"), UBYTE *addr asm("a1"), UWORD
         format == VC4Base->vc4_LastPanning.lp_Format)
     {
         if (addr == VC4Base->vc4_LastPanning.lp_Addr && x_offset == VC4Base->vc4_LastPanning.lp_X && y_offset == VC4Base->vc4_LastPanning.lp_Y) {
-            if (0) {
+            if (1) {
                 bug("[VC4] same panning as before. Skipping now\n");
             }
             return;
@@ -205,6 +205,7 @@ void VC6_SetPanning (struct BoardInfo *b asm("a0"), UBYTE *addr asm("a1"), UWORD
         VC4Base->vc4_ScaleY = 0x10000;
         VC4Base->vc4_OffsetX = 0;
         VC4Base->vc4_OffsetY = 0;
+        scale = 0x10000;
     }
     else
     {
@@ -238,7 +239,7 @@ void VC6_SetPanning (struct BoardInfo *b asm("a0"), UBYTE *addr asm("a1"), UWORD
         VC4Base->vc4_OffsetX = offset_x;
         VC4Base->vc4_OffsetY = offset_y;
 
-        if (0)
+        if (1)
             bug("[VC4] Selected scale: %08lx (X: %08lx, Y: %08lx, 1/X: %08lx, 1/Y: %08lx)\n"
                 "[VC4] Scaled size: %ld x %ld, offset X %ld, offset Y %ld\n", scale, scale_x, scale_y, recip_x, recip_y,
                 calc_width, calc_height, offset_x, offset_y);
@@ -249,27 +250,30 @@ void VC6_SetPanning (struct BoardInfo *b asm("a0"), UBYTE *addr asm("a1"), UWORD
     if (unity) {
         if (offset_only) {
             pos = VC4Base->vc4_ActivePlane;
-            displist[pos + 4] = LE32(0xc0000000 | (ULONG)addr + y_offset * bytes_per_row + x_offset * bytes_per_pix);
+            displist[pos + 5] = LE32(0xc0000000 | (ULONG)addr + y_offset * bytes_per_row + x_offset * bytes_per_pix);
             if (VC4Base->vc4_SpriteVisible)
-                SetSpritePosition(b, VC4Base->vc4_MouseX, VC4Base->vc4_MouseY, format);
+                VC6_SetSpritePosition(b, VC4Base->vc4_MouseX, VC4Base->vc4_MouseY, format);
         }
         else {
-            pos = VC6_AllocSlot(8 + 18 + 4, VC4Base);
+            pos = VC6_AllocSlot(8 + 20 + 4, VC4Base);
             int cnt = pos + 1;
 
             VC4Base->vc4_PlaneCoord = &displist[cnt];
-            displist[cnt++] = LE32(POS0_X(offset_x) | POS0_Y(offset_y) | POS0_ALPHA(0xff));
-            
-            displist[cnt++] = LE32(POS2_H(b->ModeInfo->Height) | POS2_W(b->ModeInfo->Width) | (1 << 30));
+            displist[cnt++] = LE32(VC6_POS0_X(offset_x) | VC6_POS0_Y(offset_y));
+            displist[cnt++] = LE32((VC6_SCALER_POS2_ALPHA_MODE_FIXED << VC6_SCALER_POS2_ALPHA_MODE_SHIFT) | VC6_SCALER_POS2_ALPHA(0xfff));
+            displist[cnt++] = LE32(VC6_POS2_H(b->ModeInfo->Height) | VC6_POS2_W(b->ModeInfo->Width));
             displist[cnt++] = LE32(0xdeadbeef);
+
             displist[cnt++] = LE32(0xc0000000 | (ULONG)addr + y_offset * bytes_per_row + x_offset * bytes_per_pix);
             displist[cnt++] = LE32(0xdeadbeef);
             displist[cnt++] = LE32(bytes_per_row);
 
             displist[pos] = LE32(
-                CONTROL_VALID
-                | CONTROL_WORDS(cnt - pos)
-                | CONTROL_UNITY
+                VC6_CONTROL_VALID
+                | VC6_CONTROL_WORDS(cnt - pos)
+                | VC6_CONTROL_UNITY
+                | VC6_CONTROL_ALPHA_EXPAND
+                | VC6_CONTROL_RGB_EXPAND
                 | mode_table[format]);
 
             VC4Base->vc4_PlaneScalerX = NULL;
@@ -279,10 +283,11 @@ void VC6_SetPanning (struct BoardInfo *b asm("a0"), UBYTE *addr asm("a1"), UWORD
             cnt = mouse_pos + 1;
 
             VC4Base->vc4_MouseCoord = &displist[cnt];
-            displist[cnt++] = LE32( POS0_X(offset_x + VC4Base->vc4_MouseX - x_offset) |
-                                    POS0_Y(offset_y + VC4Base->vc4_MouseY - y_offset) | POS0_ALPHA(0xff));
-            displist[cnt++] = LE32(POS1_H(sprite_height) | POS1_W(sprite_width));
-            displist[cnt++] = LE32(POS2_H(MAXSPRITEHEIGHT) | POS2_W(MAXSPRITEWIDTH) | (SCALER_POS2_ALPHA_MODE_PIPELINE << SCALER_POS2_ALPHA_MODE_SHIFT));
+            displist[cnt++] = LE32( VC6_POS0_X(offset_x + VC4Base->vc4_MouseX - x_offset) |
+                                    VC6_POS0_Y(offset_y + VC4Base->vc4_MouseY - y_offset));
+            displist[cnt++] = LE32((VC6_SCALER_POS2_ALPHA_MODE_PIPELINE << VC6_SCALER_POS2_ALPHA_MODE_SHIFT) | VC6_SCALER_POS2_ALPHA(0xfff));
+            displist[cnt++] = LE32(VC6_POS1_H(sprite_height) | VC6_POS1_W(sprite_width));
+            displist[cnt++] = LE32(VC6_POS2_H(MAXSPRITEHEIGHT) | VC6_POS2_W(MAXSPRITEWIDTH));
             displist[cnt++] = LE32(0xdeadbeef); // Scratch written by HVS
 
             displist[cnt++] = LE32(0xc0000000 | (ULONG)VC4Base->vc4_SpriteShape);
@@ -312,9 +317,10 @@ void VC6_SetPanning (struct BoardInfo *b asm("a0"), UBYTE *addr asm("a1"), UWORD
             displist[cnt++] = LE32(unity_kernel);
 
             displist[mouse_pos] = LE32(
-                CONTROL_VALID               |
-                CONTROL_WORDS(cnt-mouse_pos)    |
-                0x01800 | 
+                VC6_CONTROL_VALID               |
+                VC6_CONTROL_WORDS(cnt-mouse_pos)    |
+                VC6_CONTROL_ALPHA_EXPAND      |
+                VC6_CONTROL_RGB_EXPAND        |
                 mode_table[RGBFB_CLUT]
             );
 
@@ -327,23 +333,35 @@ void VC6_SetPanning (struct BoardInfo *b asm("a0"), UBYTE *addr asm("a1"), UWORD
             displist[cnt++] = LE32(VC4Base->vc4_SpriteColors[0]);
             displist[cnt++] = LE32(VC4Base->vc4_SpriteColors[1]);
             displist[cnt++] = LE32(VC4Base->vc4_SpriteColors[2]);
+
+#if 1
+            for (int i=pos; i < cnt; i++) {
+                ULONG args[] = {
+                    i, LE32(displist[i])
+                };
+
+                bug("[VC6] dlist[%ld] = %08lx\n", i, LE32(displist[i]));
+            }
+#endif
+
         }
     } else {
         if (offset_only) {
             pos = VC4Base->vc4_ActivePlane;
-            displist[pos + 5] = LE32(0xc0000000 | (ULONG)addr + y_offset * bytes_per_row + x_offset * bytes_per_pix);
+            displist[pos + 6] = LE32(0xc0000000 | (ULONG)addr + y_offset * bytes_per_row + x_offset * bytes_per_pix);
             if (VC4Base->vc4_SpriteVisible)
-                SetSpritePosition(b, VC4Base->vc4_MouseX, VC4Base->vc4_MouseY, format);
+                VC6_SetSpritePosition(b, VC4Base->vc4_MouseX, VC4Base->vc4_MouseY, format);
         }
         else 
         {
-            pos = VC6_AllocSlot(2*18 + 4, VC4Base);
+            pos = VC6_AllocSlot(2*20 + 4, VC4Base);
             int cnt = pos + 1;
 
             VC4Base->vc4_PlaneCoord = &displist[cnt];
-            displist[cnt++] = LE32(POS0_X(offset_x) | POS0_Y(offset_y) | POS0_ALPHA(0xff));
-            displist[cnt++] = LE32(POS1_H(calc_height) | POS1_W(calc_width));
-            displist[cnt++] = LE32(POS2_H(b->ModeInfo->Height) | POS2_W(b->ModeInfo->Width) | (SCALER_POS2_ALPHA_MODE_FIXED << SCALER_POS2_ALPHA_MODE_SHIFT));
+            displist[cnt++] = LE32(VC6_POS0_X(offset_x) | VC6_POS0_Y(offset_y));
+            displist[cnt++] = LE32((VC6_SCALER_POS2_ALPHA_MODE_FIXED << VC6_SCALER_POS2_ALPHA_MODE_SHIFT) | VC6_SCALER_POS2_ALPHA(0xfff));
+            displist[cnt++] = LE32(VC6_POS1_H(calc_height) | VC6_POS1_W(calc_width));
+            displist[cnt++] = LE32(VC6_POS2_H(b->ModeInfo->Height) | VC6_POS2_W(b->ModeInfo->Width));
             displist[cnt++] = LE32(0xdeadbeef); // Scratch written by HVS
 
             displist[cnt++] = LE32(0xc0000000 | (ULONG)addr + y_offset * bytes_per_row + x_offset * bytes_per_pix);
@@ -379,9 +397,10 @@ void VC6_SetPanning (struct BoardInfo *b asm("a0"), UBYTE *addr asm("a1"), UWORD
             displist[cnt++] = LE32(kernel_start);
 
             displist[pos] = LE32(
-                CONTROL_VALID             |
-                CONTROL_WORDS(cnt-pos)    |
-                0x01800 | 
+                VC6_CONTROL_VALID             |
+                VC6_CONTROL_WORDS(cnt-pos)    |
+                VC6_CONTROL_ALPHA_EXPAND      |
+                VC6_CONTROL_RGB_EXPAND        |
                 mode_table[format]
             );
 
@@ -389,10 +408,11 @@ void VC6_SetPanning (struct BoardInfo *b asm("a0"), UBYTE *addr asm("a1"), UWORD
             cnt = mouse_pos + 1;
 
             VC4Base->vc4_MouseCoord = &displist[cnt];
-            displist[cnt++] = LE32( POS0_X(offset_x + 0x10000 * (VC4Base->vc4_MouseX - x_offset) / VC4Base->vc4_ScaleX) |
-                                    POS0_Y(offset_y + 0x10000 * (VC4Base->vc4_MouseY - y_offset) / VC4Base->vc4_ScaleY) | POS0_ALPHA(0xff));
-            displist[cnt++] = LE32(POS1_H(sprite_height) | POS1_W(sprite_width));
-            displist[cnt++] = LE32(POS2_H(MAXSPRITEHEIGHT) | POS2_W(MAXSPRITEWIDTH) | (SCALER_POS2_ALPHA_MODE_PIPELINE << SCALER_POS2_ALPHA_MODE_SHIFT));
+            displist[cnt++] = LE32( VC6_POS0_X(offset_x + 0x10000 * (VC4Base->vc4_MouseX - x_offset) / VC4Base->vc4_ScaleX) |
+                                    VC6_POS0_Y(offset_y + 0x10000 * (VC4Base->vc4_MouseY - y_offset) / VC4Base->vc4_ScaleY));
+            displist[cnt++] = LE32((VC6_SCALER_POS2_ALPHA_MODE_PIPELINE << VC6_SCALER_POS2_ALPHA_MODE_SHIFT) | VC6_SCALER_POS2_ALPHA(0xfff));
+            displist[cnt++] = LE32(VC6_POS1_H(sprite_height) | VC6_POS1_W(sprite_width));
+            displist[cnt++] = LE32(VC6_POS2_H(MAXSPRITEHEIGHT) | VC6_POS2_W(MAXSPRITEWIDTH));
             displist[cnt++] = LE32(0xdeadbeef); // Scratch written by HVS
 
             displist[cnt++] = LE32(0xc0000000 | (ULONG)VC4Base->vc4_SpriteShape);
@@ -422,9 +442,10 @@ void VC6_SetPanning (struct BoardInfo *b asm("a0"), UBYTE *addr asm("a1"), UWORD
             displist[cnt++] = LE32(kernel_start);
 
             displist[mouse_pos] = LE32(
-                CONTROL_VALID               |
-                CONTROL_WORDS(cnt-mouse_pos)    |
-                0x01800 | 
+                VC6_CONTROL_VALID               |
+                VC6_CONTROL_WORDS(cnt-mouse_pos)    |
+                VC6_CONTROL_ALPHA_EXPAND      |
+                VC6_CONTROL_RGB_EXPAND        |
                 mode_table[RGBFB_CLUT]
             );
 
@@ -437,13 +458,13 @@ void VC6_SetPanning (struct BoardInfo *b asm("a0"), UBYTE *addr asm("a1"), UWORD
             displist[cnt++] = LE32(VC4Base->vc4_SpriteColors[0]);
             displist[cnt++] = LE32(VC4Base->vc4_SpriteColors[1]);
             displist[cnt++] = LE32(VC4Base->vc4_SpriteColors[2]);
-#if 0
+#if 1
             for (int i=pos; i < cnt; i++) {
                 ULONG args[] = {
                     i, LE32(displist[i])
                 };
 
-                RawDoFmt("[vc4] dlist[%ld] = %08lx\n", args, (APTR)putch, NULL);
+                bug("[VC6] dlist[%ld] = %08lx\n", i, LE32(displist[i]));
             }
 #endif
         }
@@ -617,18 +638,18 @@ void VC6_SetSprite (__REGA0(struct BoardInfo *b), __REGD0(BOOL enable), __REGD7(
             _x = VC4Base->vc4_MouseX;
 
         if (VC4Base->vc4_ScaleY)
-            _y = 0x10000 * VC4Base->vc4_MouseY / VC4Base->vc4_ScaleX;
+            _y = 0x10000 * VC4Base->vc4_MouseY / VC4Base->vc4_ScaleY;
         else
             _y = VC4Base->vc4_MouseY;
 
         if (VC4Base->vc4_MouseCoord) {
-            VC4Base->vc4_MouseCoord[0] = LE32(POS0_X(_x) | POS0_Y(_y) | POS0_ALPHA(0xff));
+            VC4Base->vc4_MouseCoord[0] = LE32(VC6_POS0_X(_x) | VC6_POS0_Y(_y));
         }
     }
     else
     {
         if (VC4Base->vc4_MouseCoord) {
-            VC4Base->vc4_MouseCoord[0] = LE32(POS0_X(-1) | POS0_Y(-1) | POS0_ALPHA(0xff));
+            VC4Base->vc4_MouseCoord[0] = LE32(VC6_POS0_X(-1) | VC6_POS0_Y(-1));
         }
     }
 }
@@ -665,7 +686,7 @@ void VC6_SetSpritePosition (__REGA0(struct BoardInfo *b), __REGD0(WORD x), __REG
     _y += VC4Base->vc4_OffsetY;
 
     if (VC4Base->vc4_MouseCoord) {   
-        VC4Base->vc4_MouseCoord[0] = LE32(POS0_X(_x) | POS0_Y(_y) | POS0_ALPHA(0xff));
+        VC4Base->vc4_MouseCoord[0] = LE32(VC6_POS0_X(_x) | VC6_POS0_Y(_y));
     }
 }
 
