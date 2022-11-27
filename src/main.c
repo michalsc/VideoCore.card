@@ -48,7 +48,7 @@ const struct Resident RomTag __attribute__((used)) = {
     (APTR)InitTable,
 };
 
-const char deviceName[] = "VideoCore.card";
+const char deviceName[] = CARD_NAME;
 const char deviceIdString[] = VERSION_STRING;
 
 /*
