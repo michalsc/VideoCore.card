@@ -89,7 +89,7 @@ UWORD VC6_SetSwitch(struct BoardInfo *b asm("a0"), UWORD enabled asm("d0"))
     struct VC4Base *VC4Base = (struct VC4Base *)b->CardBase;
     struct ExecBase *SysBase = VC4Base->vc4_SysBase;
 
-    if (0)
+    if (1)
     {
         bug("[VC4] SetSwitch %ld\n", enabled);
     }
@@ -169,7 +169,7 @@ void VC6_SetPanning (struct BoardInfo *b asm("a0"), UBYTE *addr asm("a1"), UWORD
     UWORD pos = 0;
     int offset_only = 0;
 
-    if (1) {
+    if (0) {
         bug("[VC4] SetPanning %lx %ld %ld %ld %lx\n", addr, width, x_offset, y_offset, format);
     }
 
@@ -178,7 +178,7 @@ void VC6_SetPanning (struct BoardInfo *b asm("a0"), UBYTE *addr asm("a1"), UWORD
         format == VC4Base->vc4_LastPanning.lp_Format)
     {
         if (addr == VC4Base->vc4_LastPanning.lp_Addr && x_offset == VC4Base->vc4_LastPanning.lp_X && y_offset == VC4Base->vc4_LastPanning.lp_Y) {
-            if (1) {
+            if (0) {
                 bug("[VC4] same panning as before. Skipping now\n");
             }
             return;
@@ -239,7 +239,7 @@ void VC6_SetPanning (struct BoardInfo *b asm("a0"), UBYTE *addr asm("a1"), UWORD
         VC4Base->vc4_OffsetX = offset_x;
         VC4Base->vc4_OffsetY = offset_y;
 
-        if (1)
+        if (0)
             bug("[VC4] Selected scale: %08lx (X: %08lx, Y: %08lx, 1/X: %08lx, 1/Y: %08lx)\n"
                 "[VC4] Scaled size: %ld x %ld, offset X %ld, offset Y %ld\n", scale, scale_x, scale_y, recip_x, recip_y,
                 calc_width, calc_height, offset_x, offset_y);
@@ -334,7 +334,7 @@ void VC6_SetPanning (struct BoardInfo *b asm("a0"), UBYTE *addr asm("a1"), UWORD
             displist[cnt++] = LE32(VC4Base->vc4_SpriteColors[1]);
             displist[cnt++] = LE32(VC4Base->vc4_SpriteColors[2]);
 
-#if 1
+#if 0
             for (int i=pos; i < cnt; i++) {
                 ULONG args[] = {
                     i, LE32(displist[i])
@@ -458,7 +458,7 @@ void VC6_SetPanning (struct BoardInfo *b asm("a0"), UBYTE *addr asm("a1"), UWORD
             displist[cnt++] = LE32(VC4Base->vc4_SpriteColors[0]);
             displist[cnt++] = LE32(VC4Base->vc4_SpriteColors[1]);
             displist[cnt++] = LE32(VC4Base->vc4_SpriteColors[2]);
-#if 1
+#if 0
             for (int i=pos; i < cnt; i++) {
                 ULONG args[] = {
                     i, LE32(displist[i])
@@ -560,7 +560,7 @@ UWORD VC6_SetDisplay (__REGA0(struct BoardInfo *b), __REGD0(UWORD enabled))
     struct VC4Base *VC4Base = (struct VC4Base *)b->CardBase;
     struct ExecBase *SysBase = VC4Base->vc4_SysBase;
     
-    if (0)
+    if (1)
     {
         bug("[VC4] SetDisplay %ld\n", enabled);
     }
