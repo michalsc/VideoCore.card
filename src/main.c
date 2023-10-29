@@ -633,6 +633,8 @@ static int InitCard(struct BoardInfo* bi asm("a0"), const char **ToolTypes asm("
     VC4Base->vc4_Scaler = 0xc0000000;
     VC4Base->vc4_UseKernel = 1;
     VC4Base->vc4_SpriteAlpha = 255;
+    VC4Base->vc4_SwitchMode = None;
+    VC4Base->vc4_SwitchInverted = 0;
 
     for (;ToolTypes[0] != NULL; ToolTypes++)
     {
@@ -754,6 +756,49 @@ static int InitCard(struct BoardInfo* bi asm("a0"), const char **ToolTypes asm("
             VC4Base->vc4_Kernel_C = (double)num / 1000.0;
 
             bug("[VC] Mitchel-Netravali C %ld\n", num);
+        }
+        else if (_strcmp(tt, "VC4_SWITCH_METHOD") == '=')
+        {
+            /*
+                Find out method for switching between HDMI and RGB signals. Currently following
+                methods are available:
+                CTS - the CTS dignal gathered from CIA port will be used for switching
+                      When CTS is set to logic 1, RGB source is selected
+                      When CTS is set to logic 0, HDMI source is selected
+
+                When no VC4_SWITCH_METHOD is selected, the driver will let user decide what to
+                do and will not attempt to perform any switching
+            */
+            const char *m = &tt[18];
+            if (m[0] == 'C' && m[1] == 'T' && m[2] == 'S' && m[3] == 0)
+            {
+                VC4Base->vc4_SwitchMode = CTS;
+            }
+            else if (m[0] == 'D' && m[1] == 'T' && m[2] == 'R' && m[3] == 0)
+            {
+                VC4Base->vc4_SwitchMode = DTR;
+            }
+            else if (m[0] == 'R' && m[1] == 'T' && m[2] == 'S' && m[3] == 0)
+            {
+                VC4Base->vc4_SwitchMode = RTS;
+            }
+            else if (m[0] == 'S' && m[1] == 'E' && m[2] == 'L' && m[3] == 0)
+            {
+                VC4Base->vc4_SwitchMode = SEL;
+            }
+        }
+        else if (_strcmp(tt, "VC4_SWITCH_INVERT") == '=')
+        {
+            /* Invert the default behavior for selected RGB/HDMI switch mode */
+            const char *s = &tt[18];
+            if (s[0] == 'Y' && s[1] == 'E' && s[2] == 'S' && s[3] == 0)
+            {
+                VC4Base->vc4_SwitchInverted = 1;
+            }
+            else if (s[0] == '1' && s[1] == 0)
+            {
+                VC4Base->vc4_SwitchInverted = 1;
+            }
         }
     }
 

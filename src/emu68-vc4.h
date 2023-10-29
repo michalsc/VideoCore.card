@@ -26,6 +26,14 @@ struct Size {
     UWORD height;
 };
 
+enum SwitchMode {
+    None = 0,
+    CTS,
+    RTS,
+    DTR,
+    SEL,
+};
+
 struct VC4Base {
     struct CardBase         vc4_LibNode;
     BPTR                    vc4_SegList;
@@ -91,6 +99,8 @@ struct VC4Base {
     }                       vc4_LastPanning;
     
     UBYTE *                 vc4_SpriteShape;
+    enum SwitchMode         vc4_SwitchMode;
+    UBYTE                   vc4_SwitchInverted;
 };
 
 void bug(const char * restrict format, ...);

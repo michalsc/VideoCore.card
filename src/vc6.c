@@ -3,6 +3,7 @@
 #include <exec/execbase.h>
 
 #include <proto/exec.h>
+#include <hardware/cia.h>
 
 #include "emu68-vc4.h"
 #include "vc6.h"
@@ -107,6 +108,45 @@ UWORD VC6_SetSwitch(struct BoardInfo *b asm("a0"), UWORD enabled asm("d0"))
         }
     }
     
+/* If switch mode is selected */
+    if (VC4Base->vc4_SwitchMode != None)
+    {
+        UWORD en = enabled;
+
+        /* Invert the switch mode */
+        if (VC4Base->vc4_SwitchInverted)
+        {
+            en = 1 - en;
+        }
+
+        switch (VC4Base->vc4_SwitchMode)
+        {
+            case CTS:
+                ((volatile struct CIA *)0xbfd000)->ciaddra |= CIAF_COMCTS;
+                if (en) ((volatile struct CIA *)0xbfd000)->ciapra &= ~CIAF_COMCTS;
+                else ((volatile struct CIA *)0xbfd000)->ciapra |= CIAF_COMCTS;
+                break;
+            
+            case RTS:
+                ((volatile struct CIA *)0xbfd000)->ciaddra |= CIAF_COMRTS;
+                if (en) ((volatile struct CIA *)0xbfd000)->ciapra &= ~CIAF_COMRTS;
+                else ((volatile struct CIA *)0xbfd000)->ciapra |= CIAF_COMRTS;
+                break;
+
+            case DTR:
+                ((volatile struct CIA *)0xbfd000)->ciaddra |= CIAF_COMDTR;
+                if (en) ((volatile struct CIA *)0xbfd000)->ciapra &= ~CIAF_COMDTR;
+                else ((volatile struct CIA *)0xbfd000)->ciapra |= CIAF_COMDTR;
+                break;
+            
+            case SEL:
+                ((volatile struct CIA *)0xbfd000)->ciaddra |= CIAF_PRTRSEL;
+                if (en) ((volatile struct CIA *)0xbfd000)->ciapra &= ~CIAF_PRTRSEL;
+                else ((volatile struct CIA *)0xbfd000)->ciapra |= CIAF_PRTRSEL;
+                break;
+        }
+    }
+
     return 1 - enabled;
 }
 
