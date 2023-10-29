@@ -17,6 +17,7 @@
 #include <proto/devicetree.h>
 
 #include <stdint.h>
+#include <common/compiler.h>
 
 // Shut off MathIEEE float injecting stuff
 #define FLOAT ULONG
@@ -87,7 +88,7 @@ int _strcmp(const char *s1, const char *s2)
     return (*(const unsigned char *)s1 - *(const unsigned char *)(s2 - 1));
 }
 
-static int FindCard(struct BoardInfo* bi asm("a0"), struct VC4Base *VC4Base asm("a6"))
+static int FindCard(REGARG(struct BoardInfo* bi, "a0"), REGARG(struct VC4Base *VC4Base, "a6"))
 {
     struct ExecBase *SysBase = VC4Base->vc4_SysBase;
     APTR DeviceTreeBase = NULL;
@@ -437,7 +438,7 @@ static void vc4_Task()
     DeleteMsgPort(port);
 }
 
-static int InitCard(struct BoardInfo* bi asm("a0"), const char **ToolTypes asm("a1"), struct VC4Base *VC4Base asm("a6"))
+static int InitCard(REGARG(struct BoardInfo* bi, "a0"), REGARG(const char **ToolTypes, "a1"), REGARG(struct VC4Base *VC4Base, "a6"))
 {
     struct ExecBase *SysBase = VC4Base->vc4_SysBase;
     struct Library *MathIeeeSingBasBase = OpenLibrary("mathieeesingbas.library", 0);
@@ -857,7 +858,7 @@ static int InitCard(struct BoardInfo* bi asm("a0"), const char **ToolTypes asm("
     return 1;
 }
 
-static struct VC4Base * OpenLib(ULONG version asm("d0"), struct VC4Base *VC4Base asm("a6"))
+static struct VC4Base * OpenLib(REGARG(ULONG version, "d0"), REGARG(struct VC4Base *VC4Base, "a6"))
 {
     struct ExecBase *SysBase = *(struct ExecBase **)4;
     VC4Base->vc4_LibNode.LibBase.lib_OpenCnt++;
@@ -868,7 +869,7 @@ static struct VC4Base * OpenLib(ULONG version asm("d0"), struct VC4Base *VC4Base
     return VC4Base;
 }
 
-static ULONG ExpungeLib(struct VC4Base *VC4Base asm("a6"))
+static ULONG ExpungeLib(REGARG(struct VC4Base *VC4Base, "a6"))
 {
     struct ExecBase *SysBase = VC4Base->vc4_SysBase;
     BPTR segList = 0;
@@ -906,7 +907,7 @@ static ULONG ExpungeLib(struct VC4Base *VC4Base asm("a6"))
     return segList;
 }
 
-static ULONG CloseLib(struct VC4Base *VC4Base asm("a6"))
+static ULONG CloseLib(REGARG(struct VC4Base *VC4Base, "a6"))
 {
     if (VC4Base->vc4_LibNode.LibBase.lib_OpenCnt != 0)
         VC4Base->vc4_LibNode.LibBase.lib_OpenCnt--;
@@ -926,7 +927,7 @@ static uint32_t ExtFunc()
     return 0;
 }
 
-struct VC4Base * vc4_Init(struct VC4Base *base asm("d0"), BPTR seglist asm("a0"), struct ExecBase *SysBase asm("a6"))
+struct VC4Base * vc4_Init(REGARG(struct VC4Base *base, "d0"), REGARG(BPTR seglist, "a0"), REGARG(struct ExecBase *SysBase, "a6"))
 {
     struct VC4Base *VC4Base = base;
     VC4Base->vc4_SegList = seglist;

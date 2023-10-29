@@ -4,13 +4,14 @@
 
 #include <proto/exec.h>
 #include <hardware/cia.h>
+#include <common/compiler.h>
 
 #include "emu68-vc4.h"
 #include "vc6.h"
 #include "boardinfo.h"
 #include "mbox.h"
 
-UWORD VC6_CalculateBytesPerRow(struct BoardInfo *b asm("a0"), UWORD width asm("d0"), RGBFTYPE format asm("d7"))
+UWORD VC6_CalculateBytesPerRow(REGARG(struct BoardInfo *b, "a0"), REGARG(UWORD width, "d0"), REGARG(RGBFTYPE format, "d7"))
 {
     struct VC4Base *VC4Base = (struct VC4Base *)b->CardBase;
     struct ExecBase *SysBase = VC4Base->vc4_SysBase;
@@ -46,7 +47,7 @@ UWORD VC6_CalculateBytesPerRow(struct BoardInfo *b asm("a0"), UWORD width asm("d
     }
 }
 
-void VC6_SetDAC(struct BoardInfo *b asm("a0"), RGBFTYPE format asm("d7"))
+void VC6_SetDAC(REGARG(struct BoardInfo *b, "a0"), REGARG(RGBFTYPE format, "d7"))
 {
     struct VC4Base *VC4Base = (struct VC4Base *)b->CardBase;
     struct ExecBase *SysBase = VC4Base->vc4_SysBase;
@@ -57,8 +58,7 @@ void VC6_SetDAC(struct BoardInfo *b asm("a0"), RGBFTYPE format asm("d7"))
     // This needs no handling, since the PiStorm doesn't really have a RAMDAC or a video card chipset.
 }
 
-
-void VC6_SetGC(struct BoardInfo *b asm("a0"), struct ModeInfo *mode_info asm("a1"), BOOL border asm("d0"))
+void VC6_SetGC(REGARG(struct BoardInfo *b, "a0"), REGARG(struct ModeInfo *mode_info, "a1"), REGARG(BOOL border, "d0"))
 {
     struct VC4Base *VC4Base = (struct VC4Base *)b->CardBase;
     struct ExecBase *SysBase = VC4Base->vc4_SysBase;
@@ -85,7 +85,7 @@ void VC6_SetGC(struct BoardInfo *b asm("a0"), struct ModeInfo *mode_info asm("a1
     }
 }
 
-UWORD VC6_SetSwitch(struct BoardInfo *b asm("a0"), UWORD enabled asm("d0"))
+UWORD VC6_SetSwitch(REGARG(struct BoardInfo *b, "a0"), REGARG(UWORD enabled, "d0"))
 {
     struct VC4Base *VC4Base = (struct VC4Base *)b->CardBase;
     struct ExecBase *SysBase = VC4Base->vc4_SysBase;
@@ -188,7 +188,9 @@ int VC6_AllocSlot(UWORD size, struct VC4Base *VC4Base)
     return ret;
 }
 
-void VC6_SetPanning (struct BoardInfo *b asm("a0"), UBYTE *addr asm("a1"), UWORD width asm("d0"), WORD x_offset asm("d1"), WORD y_offset asm("d2"), RGBFTYPE format asm("d7"))
+void VC6_SetPanning(REGARG(struct BoardInfo *b, "a0"), REGARG(UBYTE *addr, "a1"), 
+                    REGARG(UWORD width, "d0"), REGARG(WORD x_offset, "d1"), 
+                    REGARG(WORD y_offset, "d2"), REGARG(RGBFTYPE format, "d7"))
 {
     struct VC4Base *VC4Base = (struct VC4Base *)b->CardBase;
     struct ExecBase *SysBase = VC4Base->vc4_SysBase;
@@ -522,8 +524,8 @@ void VC6_SetPanning (struct BoardInfo *b asm("a0"), UBYTE *addr asm("a1"), UWORD
     }
 }
 
-
-void VC6_SetColorArray (__REGA0(struct BoardInfo *b), __REGD0(UWORD start), __REGD1(UWORD num)) {
+void VC6_SetColorArray(REGARG(struct BoardInfo *b, "a0"), REGARG(UWORD start, "d0"), REGARG(UWORD num, "d1"))
+{
     struct VC4Base *VC4Base = (struct VC4Base *)b->CardBase;
     struct ExecBase *SysBase = VC4Base->vc4_SysBase;
     volatile uint32_t *displist = (uint32_t *)0xf2404000;
@@ -546,7 +548,9 @@ void VC6_SetColorArray (__REGA0(struct BoardInfo *b), __REGD0(UWORD start), __RE
 }
 
 
-APTR VC6_CalculateMemory (__REGA0(struct BoardInfo *b), __REGA1(unsigned long addr), __REGD7(RGBFTYPE format)) {
+APTR VC6_CalculateMemory(REGARG(struct BoardInfo *b, "a0"), REGARG(unsigned long addr, "a1"), 
+                         REGARG(RGBFTYPE format, "d7"))
+{
     struct VC4Base *VC4Base = (struct VC4Base *)b->CardBase;
     struct ExecBase *SysBase = VC4Base->vc4_SysBase;
 
@@ -583,7 +587,8 @@ enum fake_rgbftypes {
 };
 #define BIP(a) (1 << a)
 
-ULONG VC6_GetCompatibleFormats (__REGA0(struct BoardInfo *b), __REGD7(RGBFTYPE format)) {
+ULONG VC6_GetCompatibleFormats(REGARG(struct BoardInfo *b, "a0"), REGARG(RGBFTYPE format, "d7"))
+{
     struct VC4Base *VC4Base = (struct VC4Base *)b->CardBase;
     struct ExecBase *SysBase = VC4Base->vc4_SysBase;
     if (0)
@@ -595,7 +600,7 @@ ULONG VC6_GetCompatibleFormats (__REGA0(struct BoardInfo *b), __REGD7(RGBFTYPE f
 }
 
 //static int display_enabled = 0;
-UWORD VC6_SetDisplay (__REGA0(struct BoardInfo *b), __REGD0(UWORD enabled))
+UWORD VC6_SetDisplay(REGARG(struct BoardInfo *b, "a0"), REGARG(UWORD enabled, "d0"))
 {
     struct VC4Base *VC4Base = (struct VC4Base *)b->CardBase;
     struct ExecBase *SysBase = VC4Base->vc4_SysBase;
@@ -613,9 +618,9 @@ UWORD VC6_SetDisplay (__REGA0(struct BoardInfo *b), __REGD0(UWORD enabled))
     return 1;
 }
 
-
-LONG VC6_ResolvePixelClock (__REGA0(struct BoardInfo *b), __REGA1(struct ModeInfo *mode_info), __REGD0(ULONG pixel_clock), __REGD7(RGBFTYPE format)) {
-
+LONG VC6_ResolvePixelClock(REGARG(struct BoardInfo *b, "a0"), REGARG(struct ModeInfo *mode_info, "a1"),
+                           REGARG(ULONG pixel_clock, "d0"), REGARG(RGBFTYPE format, "d7"))
+{
     struct VC4Base *VC4Base = (struct VC4Base *)b->CardBase;
     struct ExecBase *SysBase = VC4Base->vc4_SysBase;
     
@@ -636,7 +641,9 @@ LONG VC6_ResolvePixelClock (__REGA0(struct BoardInfo *b), __REGA1(struct ModeInf
     return 0;
 }
 
-ULONG VC6_GetPixelClock (__REGA0(struct BoardInfo *b), __REGA1(struct ModeInfo *mode_info), __REGD0(ULONG index), __REGD7(RGBFTYPE format)) {
+ULONG VC6_GetPixelClock(REGARG(struct BoardInfo *b, "a0"), REGARG(struct ModeInfo *mode_info, "a1"),
+                        REGARG(ULONG index, "d0"), REGARG(RGBFTYPE format, "d7"))
+{
     struct VC4Base *VC4Base = (struct VC4Base *)b->CardBase;
     
     ULONG clock = mode_info->HorTotal * mode_info->VerTotal * VC4Base->vc4_VertFreq;
@@ -648,21 +655,27 @@ ULONG VC6_GetPixelClock (__REGA0(struct BoardInfo *b), __REGA1(struct ModeInfo *
 }
 
 // None of these five really have to do anything.
-void VC6_SetClock (__REGA0(struct BoardInfo *b)) {
-}
-void VC6_SetMemoryMode (__REGA0(struct BoardInfo *b), __REGD7(RGBFTYPE format)) {
-}
-
-void VC6_SetWriteMask (__REGA0(struct BoardInfo *b), __REGD0(UBYTE mask)) {
+void VC6_SetClock(REGARG(struct BoardInfo *b, "a0"))
+{
 }
 
-void VC6_SetClearMask (__REGA0(struct BoardInfo *b), __REGD0(UBYTE mask)) {
+void VC6_SetMemoryMode(REGARG(struct BoardInfo *b, "a0"), REGARG(RGBFTYPE format, "d7"))
+{
 }
 
-void VC6_SetReadPlane (__REGA0(struct BoardInfo *b), __REGD0(UBYTE plane)) {
+void VC6_SetWriteMask(REGARG(struct BoardInfo *b, "a0"), REGARG(UBYTE mask, "d0"))
+{
 }
 
-void VC6_SetSprite (__REGA0(struct BoardInfo *b), __REGD0(BOOL enable), __REGD7(RGBFTYPE format))
+void VC6_SetClearMask(REGARG(struct BoardInfo *b, "a0"), REGARG(UBYTE mask, "d0"))
+{
+}
+
+void VC6_SetReadPlane(REGARG(struct BoardInfo *b, "a0"), REGARG(UBYTE plane, "d0"))
+{
+}
+
+void VC6_SetSprite(REGARG(struct BoardInfo *b, "a0"), REGARG(BOOL enable, "d0"), REGARG(RGBFTYPE format, "d7"))
 {
     struct VC4Base *VC4Base = (struct VC4Base *)b->CardBase;
 
@@ -694,7 +707,8 @@ void VC6_SetSprite (__REGA0(struct BoardInfo *b), __REGD0(BOOL enable), __REGD7(
     }
 }
 
-void VC6_SetSpritePosition (__REGA0(struct BoardInfo *b), __REGD0(WORD x), __REGD1(WORD y), __REGD7(RGBFTYPE format))
+void VC6_SetSpritePosition(REGARG(struct BoardInfo *b, "a0"), REGARG(WORD x, "d0"), 
+                           REGARG(WORD y, "d1"), REGARG(RGBFTYPE format, "d7"))
 {
     struct VC4Base *VC4Base = (struct VC4Base *)b->CardBase;
 
@@ -730,8 +744,7 @@ void VC6_SetSpritePosition (__REGA0(struct BoardInfo *b), __REGD0(WORD x), __REG
     }
 }
 
-
-void VC6_SetSpriteImage (__REGA0(struct BoardInfo *b), __REGD7(RGBFTYPE format))
+void VC6_SetSpriteImage(REGARG(struct BoardInfo *b, "a0"), REGARG(RGBFTYPE format, "d7"))
 {
     struct VC4Base *VC4Base = (struct VC4Base *)b->CardBase;
     struct ExecBase *SysBase = *(struct ExecBase **)4;
@@ -798,7 +811,9 @@ void VC6_SetSpriteImage (__REGA0(struct BoardInfo *b), __REGD7(RGBFTYPE format))
     CacheClearE(VC4Base->vc4_SpriteShape, MAXSPRITEHEIGHT * MAXSPRITEWIDTH, CACRF_ClearD);
 }
 
-void VC6_SetSpriteColor (__REGA0(struct BoardInfo *b), __REGD0(UBYTE idx), __REGD1(UBYTE R), __REGD2(UBYTE G), __REGD3(UBYTE B), __REGD7(RGBFTYPE format))
+void VC6_SetSpriteColor(REGARG(struct BoardInfo *b, "a0"), REGARG(UBYTE idx, "d0"),
+                        REGARG(UBYTE R, "d1"), REGARG(UBYTE G, "d2"), REGARG(UBYTE B, "d3"),
+                        REGARG(RGBFTYPE format, "d7"))
 {
     struct VC4Base *VC4Base = (struct VC4Base *)b->CardBase;
     if (idx < 3) {
@@ -809,7 +824,7 @@ void VC6_SetSpriteColor (__REGA0(struct BoardInfo *b), __REGD0(UBYTE idx), __REG
     }
 }
 
-ULONG VC6_GetVBeamPos(struct BoardInfo *b asm("a0"))
+ULONG VC6_GetVBeamPos(REGARG(struct BoardInfo *b, "a0"))
 {
     volatile ULONG *stat = (ULONG*)(0xf2400000 + SCALER_DISPSTAT1);
     ULONG vbeampos = LE32(*stat) & 0xfff;
@@ -817,7 +832,8 @@ ULONG VC6_GetVBeamPos(struct BoardInfo *b asm("a0"))
     return vbeampos;
 }
 
-void VC6_WaitVerticalSync (__REGA0(struct BoardInfo *b), __REGD0(BOOL toggle)) {
+void VC6_WaitVerticalSync(REGARG(struct BoardInfo *b, "a0"), REGARG(BOOL toggle, "d0"))
+{
     struct VC4Base *VC4Base = (struct VC4Base *)b->CardBase;
     volatile ULONG *stat = (ULONG*)(0xf2400000 + SCALER_DISPSTAT1);
 
