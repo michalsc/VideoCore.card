@@ -19,16 +19,17 @@ int mitchell_netravali(ULONG x, ULONG b, ULONG c, struct Library *MathIeeeSingBa
     const ULONG float_6 = 0x40c00000;
     const ULONG float_0p5 = 0x3f000000;
     const ULONG float_255 = 0x437f0000;
+    const ULONG float_2 = 0x40000000;
+    const ULONG float_1 = 0x3f800000;
 
     ULONG k;
 
     x = IEEESPAbs(x);
     
-    if (x < 1) {
+    if (IEEESPCmp(x, float_1) < 0) {
         const ULONG float_18 = 0x41900000;
         const ULONG float_12 = 0x41400000;
         const ULONG float_9 = 0x41100000;
-        const ULONG float_2 = 0x40000000;
         
         ULONG a1, a2, a3;
         a1 = IEEESPAdd(
@@ -64,7 +65,7 @@ int mitchell_netravali(ULONG x, ULONG b, ULONG c, struct Library *MathIeeeSingBa
         k = IEEESPAdd(IEEESPAdd(a1, a2), a3);
         //k = (12.0 - 9.0 * b - 6.0 * c) * x * x * x + (-18.0 + 12.0 * b + 6.0 * c) * x * x + (6.0 - 2.0 * b);
     }
-    else if (x < 2) {
+    else if (IEEESPCmp(x, float_2) < 0) {
         const ULONG float_8 = 0x41000000;
         const ULONG float_24 = 0x41c00000;
         const ULONG float_30 = 0x41f00000;
