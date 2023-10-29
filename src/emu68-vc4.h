@@ -63,8 +63,8 @@ struct VC4Base {
     ULONG                   vc4_Scaler;
     UBYTE                   vc4_Phase;
     ULONG                   vc4_VertFreq;
-    double                  vc4_Kernel_B;
-    double                  vc4_Kernel_C;
+    ULONG                   vc4_Kernel_B; // FLOAT!
+    ULONG                   vc4_Kernel_C; // FLOAT!
     UBYTE                   vc4_UseKernel;
     UBYTE                   vc4_SpriteAlpha;
     UBYTE                   vc4_SpriteVisible;

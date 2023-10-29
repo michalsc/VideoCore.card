@@ -26,14 +26,14 @@ struct VC4Msg {
 
         struct {
             UBYTE kernel;
-            double b;
-            double c;
+            ULONG b; // FLOAT!
+            ULONG c; // FLOAT!
         } SetKernel;
 
         struct {
             UBYTE kernel;
-            double b;
-            double c;
+            ULONG b; // FLOAT!
+            ULONG c; // FLOAT!
             WORD kernel_val[16];
         } GetKernel;
     };

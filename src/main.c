@@ -8,6 +8,7 @@
 #include <clib/debug_protos.h>
 #include <devices/inputevent.h>
 
+#include <proto/mathieeesingbas.h>
 #include <proto/exec.h>
 #include <proto/expansion.h>
 #include <proto/dos.h>
@@ -16,6 +17,9 @@
 #include <proto/devicetree.h>
 
 #include <stdint.h>
+
+// Shut off MathIEEE float injecting stuff
+#define FLOAT ULONG
 
 #include "boardinfo.h"
 #include "emu68-vc4.h"
@@ -436,6 +440,10 @@ static void vc4_Task()
 static int InitCard(struct BoardInfo* bi asm("a0"), const char **ToolTypes asm("a1"), struct VC4Base *VC4Base asm("a6"))
 {
     struct ExecBase *SysBase = VC4Base->vc4_SysBase;
+    struct Library *MathIeeeSingBasBase = OpenLibrary("mathieeesingbas.library", 0);
+
+    if (MathIeeeSingBasBase == NULL)
+        return 0;
 
     bi->CardBase = (struct CardBase *)VC4Base;
     bi->ExecBase = VC4Base->vc4_SysBase;
@@ -620,14 +628,20 @@ static int InitCard(struct BoardInfo* bi asm("a0"), const char **ToolTypes asm("
 
     Enable();
 
-    double delta = (double)(tick2 - tick1);
-    double hz = 1000000.0 / delta;
+    const ULONG float_1000000 = 0x49742400;
+    const ULONG float_1000 = 0x447a0000;
+    const ULONG float_0p5 = 0x3f000000;
 
-    ULONG mHz = 1000.0 * hz;
+    ULONG delta = IEEESPFlt(tick2 - tick1);
+    ULONG hz = IEEESPDiv(float_1000000, delta);
+    ULONG mHz = IEEESPMul(float_1000, hz);
+    mHz = IEEESPAdd(mHz, float_0p5);   // + 0.5
+    mHz = IEEESPFix(mHz);
+    hz = IEEESPAdd(hz, float_0p5);
+    hz = IEEESPFix(hz);
 
     bug("[VC] Detected refresh rate of %ld.%03ld Hz\n", mHz / 1000, mHz % 1000);
-
-    VC4Base->vc4_VertFreq = (ULONG)(hz+0.5);
+    VC4Base->vc4_VertFreq = hz;
 
     VC4Base->vc4_Phase = 128;
     VC4Base->vc4_Scaler = 0xc0000000;
@@ -635,6 +649,8 @@ static int InitCard(struct BoardInfo* bi asm("a0"), const char **ToolTypes asm("
     VC4Base->vc4_SpriteAlpha = 255;
     VC4Base->vc4_SwitchMode = None;
     VC4Base->vc4_SwitchInverted = 0;
+    VC4Base->vc4_Kernel_B = 0x3e800000; // 0.25
+    VC4Base->vc4_Kernel_C = 0x3f400000; // 0.75
 
     for (;ToolTypes[0] != NULL; ToolTypes++)
     {
@@ -720,7 +736,10 @@ static int InitCard(struct BoardInfo* bi asm("a0"), const char **ToolTypes asm("
                 num = num * 10 + (*c++ - '0');
             }
 
-            VC4Base->vc4_Kernel_B = (double)num / 1000.0;
+            VC4Base->vc4_Kernel_B = IEEESPDiv(
+                IEEESPFlt(num),
+                0x447a0000  // 1000.0
+            );
 
             bug("[VC] Mitchel-Netravali B %ld\n", num);
         }
@@ -753,7 +772,10 @@ static int InitCard(struct BoardInfo* bi asm("a0"), const char **ToolTypes asm("
                 num = num * 10 + (*c++ - '0');
             }
 
-            VC4Base->vc4_Kernel_C = (double)num / 1000.0;
+            VC4Base->vc4_Kernel_C = IEEESPDiv(
+                IEEESPFlt(num),
+                0x447a0000  // 1000.0
+            );
 
             bug("[VC] Mitchel-Netravali C %ld\n", num);
         }
@@ -829,6 +851,8 @@ static int InitCard(struct BoardInfo* bi asm("a0"), const char **ToolTypes asm("
     VC4Base->vc4_SpriteShape = AllocMem(MAXSPRITEWIDTH * MAXSPRITEHEIGHT, MEMF_FAST | MEMF_REVERSE | MEMF_CLEAR);
 
     bug("[VC] InitCard ready\n");
+
+    CloseLibrary(MathIeeeSingBasBase);
 
     return 1;
 }
