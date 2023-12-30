@@ -323,3 +323,27 @@ uint32_t upload_code(const void * code, uint32_t code_size, struct VC4Base *VC4B
     /* Return back physical address */
     return phys_addr;
 }
+
+ULONG enable_unicam_domain(struct VC4Base *VC4Base)
+{
+    struct ExecBase *SysBase = VC4Base->vc4_SysBase;
+    ULONG *FBReq = VC4Base->vc4_Request;
+
+    ULONG len = 8 * 4;
+
+    FBReq[0] = LE32(4 * 8);      // Length
+    FBReq[1] = 0;                // Request
+    FBReq[2] = LE32(0x00038030); // SetClockRate
+    FBReq[3] = LE32(8);
+    FBReq[4] = 0;
+    FBReq[5] = LE32(14); // unicam1
+    FBReq[6] = LE32(1);
+    FBReq[7] = 0;
+
+    CachePreDMA(FBReq, &len, 0);
+    mbox_send(8, (ULONG)FBReq,VC4Base);
+    mbox_recv(8, VC4Base);
+    CachePostDMA(FBReq, &len, 0);
+
+    return LE32(FBReq[6]);
+}

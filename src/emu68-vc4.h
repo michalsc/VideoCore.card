@@ -32,6 +32,7 @@ enum SwitchMode {
     RTS,
     DTR,
     SEL,
+    CSI,
 };
 
 struct VC4Base {
@@ -48,6 +49,9 @@ struct VC4Base {
     APTR                    vc4_Request;
     APTR                    vc4_MemBase;
     uint32_t                vc4_MemSize;
+    APTR                    vc4_Unicambuffer;
+    ULONG                   vc4_UnicamDL;
+    volatile ULONG *        vc4_UnicamKernel;
     APTR                    vc4_Framebuffer;
     uint32_t                vc4_Pitch;
     uint16_t                vc4_Enabled;

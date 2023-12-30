@@ -17,6 +17,7 @@ add_executable(VideoCore.card
     src/support.c
     src/debug.c
     src/end.c
+    src/unicam.c
 )
 target_link_libraries(VideoCore.card devicetree amiga common)
 target_compile_definitions(VideoCore.card PUBLIC CARD_NAME="VideoCore.card")
@@ -29,6 +30,7 @@ add_executable(Emu68-VC4.card
     src/support.c
     src/debug.c
     src/end.c
+    src/unicam.c
 )
 target_link_libraries(Emu68-VC4.card devicetree amiga common)
 target_compile_definitions(Emu68-VC4.card PUBLIC CARD_NAME="Emu68-VC4.card")

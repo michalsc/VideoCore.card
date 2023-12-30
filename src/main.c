@@ -29,6 +29,7 @@
 #include "support.h"
 #include "vc4.h"
 #include "vc6.h"
+#include "unicam.h"
 
 int __attribute__((no_reorder)) _start()
 {
@@ -290,6 +291,10 @@ static int FindCard(REGARG(struct BoardInfo* bi, "a0"), REGARG(struct VC4Base *V
     RawDoFmt("[vc4] VPU CopyBlock pointer at %08lx\n", &VC4Base->vc4_VPU_CopyBlock, (APTR)putch, NULL);
 #endif
 
+//UNICAM
+    VC4Base->vc4_Unicambuffer = AllocMem(720 * 768 * sizeof(ULONG), MEMF_FAST);
+    unicam_run(VC4Base->vc4_Unicambuffer,1,0x22,720,576,16,VC4Base);
+
     return 1;
 }
 
@@ -343,12 +348,22 @@ static void vc4_Task()
                                 VC4Base->vc4_Kernel[0] = LE32(kernel_start);
                                 VC4Base->vc4_Kernel[1] = LE32(kernel_start);
                                 VC4Base->vc4_Kernel[2] = LE32(kernel_start);
-                                VC4Base->vc4_Kernel[3] = LE32(kernel_start);                               
+                                VC4Base->vc4_Kernel[3] = LE32(kernel_start);
 
                                 VC4Base->vc4_MouseCoord[12] = LE32(kernel_start);
                                 VC4Base->vc4_MouseCoord[13] = LE32(kernel_start);
                                 VC4Base->vc4_MouseCoord[14] = LE32(kernel_start);
                                 VC4Base->vc4_MouseCoord[15] = LE32(kernel_start);
+                            }
+                            if (VC4Base->vc4_UnicamKernel)
+                            {
+                                // Wait for vertical blank before updating the display list
+                                do { asm volatile("nop"); } while((LE32(*stat) & 0xfff) != VC4Base->vc4_DispSize.height);
+
+                                VC4Base->vc4_UnicamKernel[0] = LE32(kernel_start);
+                                VC4Base->vc4_UnicamKernel[1] = LE32(kernel_start);
+                                VC4Base->vc4_UnicamKernel[2] = LE32(kernel_start);
+                                VC4Base->vc4_UnicamKernel[3] = LE32(kernel_start);
                             }
                             break;
                         
@@ -809,6 +824,10 @@ static int InitCard(REGARG(struct BoardInfo* bi, "a0"), REGARG(const char **Tool
             {
                 VC4Base->vc4_SwitchMode = SEL;
             }
+            else if (m[0] == 'C' && m[1] == 'S' && m[2] == 'I' && m[3] == 0)
+            {
+                VC4Base->vc4_SwitchMode = CSI;
+            }
         }
         else if (_strcmp(tt, "VC4_SWITCH_INVERT") == '=')
         {
@@ -840,6 +859,15 @@ static int InitCard(REGARG(struct BoardInfo* bi, "a0"), REGARG(const char **Tool
         compute_nearest_neighbour_kernel(((uint32_t *)0xf2404000) - kernel_start + unity_kernel);
     else
         compute_nearest_neighbour_kernel(((uint32_t *)0xf2402000) - kernel_start + unity_kernel);
+
+    if (VC4Base->vc4_VideoCore6)
+    {
+        VC6_ConstructUnicamDL(VC4Base);
+    }
+    else
+    {
+        VC4_ConstructUnicamDL(VC4Base);
+    }
 
     VC4Base->vc4_Task = NewCreateTask(
         TASKTAG_PC,         (Tag)vc4_Task,

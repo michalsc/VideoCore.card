@@ -80,4 +80,6 @@ extern int kernel_start;
 int compute_nearest_neighbour_kernel(uint32_t *dlist_memory);
 int compute_scaling_kernel(uint32_t *dlist_memory, ULONG b, ULONG c);
 
+void VC4_ConstructUnicamDL(struct VC4Base *VC4Base);
+
 #endif /* _VC4_H */
