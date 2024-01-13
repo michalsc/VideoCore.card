@@ -4,6 +4,9 @@
 
 #include <proto/exec.h>
 #include <proto/mathieeesingbas.h>
+#include <proto/unicam.h>
+
+#include <resources/unicam.h>
 #include <hardware/cia.h>
 
 #include <common/compiler.h>
@@ -1039,6 +1042,7 @@ void WaitVerticalSync(REGARG(struct BoardInfo *b, "a0"), REGARG(BOOL toggle, "d0
 /* Unicam DisplayList */
 void VC4_ConstructUnicamDL(struct VC4Base *VC4Base)
 {
+    APTR UnicamBase = VC4Base->vc4_UnicamBase;
     int unity = 0;
     ULONG scale_x = 0;
     ULONG scale_y = 0;
@@ -1050,37 +1054,66 @@ void VC4_ConstructUnicamDL(struct VC4Base *VC4Base)
     ULONG offset_x = 0;
     ULONG offset_y = 0;
 
+    UBYTE scaler;
+    UBYTE phase;
+
+    ULONG config = UnicamGetConfig();
+
+    ULONG KernelC = UnicamGetKernel();
+    ULONG KernelB = KernelC >> 16;
+    KernelC &= 0xffff;
+
+    ULONG crop_w = UnicamGetCropSize();
+    ULONG crop_h = crop_w & 0xffff;
+    crop_w >>= 16;
+
+    ULONG crop_x = UnicamGetCropOffset();
+    ULONG crop_y = crop_x & 0xffff;
+    crop_x >>= 16;
+
+    scaler = (config & UNICAMF_SCALER) >> UNICAMB_SCALER;
+    phase = (config & UNICAMF_PHASE) >> UNICAMB_PHASE;
+
     ULONG cnt = 0x300; // Initial pointer to UnicamDL
 
     volatile ULONG *displist = (ULONG *)0xf2402000;
 
-    if (720 == VC4Base->vc4_DispSize.width &&
-        576 == VC4Base->vc4_DispSize.height)
+    if (crop_w == VC4Base->vc4_DispSize.width &&
+        crop_h == VC4Base->vc4_DispSize.height)
     {
         unity = 1;
     }
     else
     {
-        scale_x = 0x10000 * 720 / VC4Base->vc4_DispSize.width;
-        scale_y = 0x10000 * 576 / VC4Base->vc4_DispSize.height;
+        scale_x = 0x10000 * crop_w / VC4Base->vc4_DispSize.width;
+        scale_y = 0x10000 * crop_h / VC4Base->vc4_DispSize.height;
 
         recip_x = 0xffffffff / scale_x;
         recip_y = 0xffffffff / scale_y;
 
         // Select larger scaling factor from X and Y, but it need to fit
-        if (((0x10000 * 576) / scale_x) > VC4Base->vc4_DispSize.height) {
+        if (((0x10000 * crop_h) / scale_x) > VC4Base->vc4_DispSize.height) {
             scale = scale_y;
         }
         else {
             scale = scale_x;
         }
 
-        calc_width = (0x10000 * 720) / scale;
-        calc_height = (0x10000 * 576) / scale;
+        if (config & UNICAMF_INTEGER)
+        {
+            scale = 0x10000 / (ULONG)(0x10000 / scale);
+        }
+
+        calc_width = (0x10000 * crop_w) / scale;
+        calc_height = (0x10000 * crop_h) / scale;
 
         offset_x = (VC4Base->vc4_DispSize.width - calc_width) >> 1;
         offset_y = (VC4Base->vc4_DispSize.height - calc_height) >> 1;
     }
+
+    ULONG startAddress = (ULONG)VC4Base->vc4_Unicambuffer;
+    startAddress += crop_x * sizeof(UWORD);
+    startAddress += crop_y * 720 * sizeof(UWORD);
 
     if (unity)
     {
@@ -1099,23 +1132,23 @@ void VC4_ConstructUnicamDL(struct VC4Base *VC4Base)
 
         /* Center it on the screen */
         displist[cnt++] = LE32(POS0_X(offset_x) | POS0_Y(offset_y) | POS0_ALPHA(0xff));
-        displist[cnt++] = LE32(POS2_H(576) | POS2_W(720) | (1 << 30));
+        displist[cnt++] = LE32(POS2_H(crop_h) | POS2_W(crop_w) | (1 << 30));
         displist[cnt++] = LE32(0xdeadbeef);
 
         /* Set address */
-        displist[cnt++] = LE32(0xc0000000 | (ULONG)VC4Base->vc4_Unicambuffer);
+        displist[cnt++] = LE32(0xc0000000 | startAddress);
         displist[cnt++] = LE32(0xdeadbeef);
         displist[cnt++] = LE32(720*2);
 
         /* Done */
         displist[cnt++] = LE32(0x80000000);
-        
-        VC4Base->vc4_UnicamKernel = NULL;
     }
     else
     {
         cnt -= 17;
         
+        if (config & UNICAMF_SMOOTHING) cnt -= 11;
+
         VC4Base->vc4_UnicamDL = cnt;
 
         /* Set control reg */
@@ -1129,11 +1162,11 @@ void VC4_ConstructUnicamDL(struct VC4Base *VC4Base)
         /* Center plane on the screen */
         displist[cnt++] = LE32(POS0_X(offset_x) | POS0_Y(offset_y) | POS0_ALPHA(0xff));
         displist[cnt++] = LE32(POS1_H(calc_height) | POS1_W(calc_width));
-        displist[cnt++] = LE32(POS2_H(576) | POS2_W(720) | (SCALER_POS2_ALPHA_MODE_FIXED << SCALER_POS2_ALPHA_MODE_SHIFT));
+        displist[cnt++] = LE32(POS2_H(crop_h) | POS2_W(crop_w) | (SCALER_POS2_ALPHA_MODE_FIXED << SCALER_POS2_ALPHA_MODE_SHIFT));
         displist[cnt++] = LE32(0xdeadbeef); // Scratch written by HVS
 
         /* Set address and pitch */
-        displist[cnt++] = LE32(0xc0000000 | (ULONG)VC4Base->vc4_Unicambuffer);
+        displist[cnt++] = LE32(0xc0000000 | startAddress);
         displist[cnt++] = LE32(0xdeadbeef);
         displist[cnt++] = LE32(720*2);
 
@@ -1145,13 +1178,44 @@ void VC4_ConstructUnicamDL(struct VC4Base *VC4Base)
         displist[cnt++] = LE32((scale << 8) | VC4Base->vc4_Scaler | VC4Base->vc4_Phase);
         displist[cnt++] = LE32(0); // Scratch written by HVS
 
-        VC4Base->vc4_UnicamKernel = &displist[cnt];
-        displist[cnt++] = LE32(kernel_start);
-        displist[cnt++] = LE32(kernel_start);
-        displist[cnt++] = LE32(kernel_start);
-        displist[cnt++] = LE32(kernel_start);
+        if (config & UNICAMF_SMOOTHING)
+        {
+            ULONG kernel = cnt + 5;
+            displist[cnt++] = LE32(kernel);
+            displist[cnt++] = LE32(kernel);
+            displist[cnt++] = LE32(kernel);
+            displist[cnt++] = LE32(kernel);
+        }
+        else
+        {
+            displist[cnt++] = LE32(unity_kernel);
+            displist[cnt++] = LE32(unity_kernel);
+            displist[cnt++] = LE32(unity_kernel);
+            displist[cnt++] = LE32(unity_kernel);
+        }
 
         /* Done */
         displist[cnt++] = LE32(0x80000000);
+
+        /* Put scaling kernel here... */
+        if (config & UNICAMF_SMOOTHING)
+        {
+            struct ExecBase *SysBase = VC4Base->vc4_SysBase;
+            struct Library *MathIeeeSingBasBase = OpenLibrary("mathieeesingbas.library", 0);
+
+            ULONG float_kernel_b = IEEESPDiv(
+                IEEESPFlt(KernelB),
+                0x447a0000  // 1000.0
+            );
+
+            ULONG float_kernel_c = IEEESPDiv(
+                IEEESPFlt(KernelC),
+                0x447a0000  // 1000.0
+            );
+
+            CloseLibrary(MathIeeeSingBasBase);
+
+            compute_scaling_kernel((uint32_t *)&displist[cnt], float_kernel_b, float_kernel_c);
+        }
     }
 }

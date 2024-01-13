@@ -15,6 +15,7 @@
 #include <proto/intuition.h>
 #include <proto/input.h>
 #include <proto/devicetree.h>
+#include <proto/unicam.h>
 
 #include <stdint.h>
 #include <common/compiler.h>
@@ -292,8 +293,14 @@ static int FindCard(REGARG(struct BoardInfo* bi, "a0"), REGARG(struct VC4Base *V
 #endif
 
 //UNICAM
-    VC4Base->vc4_Unicambuffer = AllocMem(720 * 768 * sizeof(ULONG), MEMF_FAST);
-    unicam_run(VC4Base->vc4_Unicambuffer,1,0x22,720,576,16,VC4Base);
+
+    APTR UnicamBase = OpenResource("unicam.resource");
+    if (UnicamBase != NULL)
+    {
+        VC4Base->vc4_UnicamBase = UnicamBase;
+        VC4Base->vc4_Unicambuffer = UnicamGetFramebuffer();
+        UnicamStart(VC4Base->vc4_Unicambuffer, 1, 0x22, 720, 576, 16);
+    }
 
     return 1;
 }
@@ -354,16 +361,6 @@ static void vc4_Task()
                                 VC4Base->vc4_MouseCoord[13] = LE32(kernel_start);
                                 VC4Base->vc4_MouseCoord[14] = LE32(kernel_start);
                                 VC4Base->vc4_MouseCoord[15] = LE32(kernel_start);
-                            }
-                            if (VC4Base->vc4_UnicamKernel)
-                            {
-                                // Wait for vertical blank before updating the display list
-                                do { asm volatile("nop"); } while((LE32(*stat) & 0xfff) != VC4Base->vc4_DispSize.height);
-
-                                VC4Base->vc4_UnicamKernel[0] = LE32(kernel_start);
-                                VC4Base->vc4_UnicamKernel[1] = LE32(kernel_start);
-                                VC4Base->vc4_UnicamKernel[2] = LE32(kernel_start);
-                                VC4Base->vc4_UnicamKernel[3] = LE32(kernel_start);
                             }
                             break;
                         
@@ -667,6 +664,11 @@ static int InitCard(REGARG(struct BoardInfo* bi, "a0"), REGARG(const char **Tool
     VC4Base->vc4_SwitchInverted = 0;
     VC4Base->vc4_Kernel_B = 0x3e800000; // 0.25
     VC4Base->vc4_Kernel_C = 0x3f400000; // 0.75
+
+    APTR UnicamBase = VC4Base->vc4_UnicamBase;
+
+    /* If Unicam was activated on boot, pre-select CSI switch mode */
+    if (UnicamGetConfig() && UNICAMF_BOOT) VC4Base->vc4_SwitchMode = CSI;
 
     for (;ToolTypes[0] != NULL; ToolTypes++)
     {

@@ -43,6 +43,7 @@ struct VC4Base {
     struct DOSBase *        vc4_DOSBase;
     struct IntuitionBase *  vc4_IntuitionBase;
     APTR                    vc4_DeviceTreeBase;
+    APTR                    vc4_UnicamBase;
     APTR                    vc4_MailBox;
     APTR                    vc4_HVS;
     APTR                    vc4_RequestBase;
@@ -51,7 +52,6 @@ struct VC4Base {
     uint32_t                vc4_MemSize;
     APTR                    vc4_Unicambuffer;
     ULONG                   vc4_UnicamDL;
-    volatile ULONG *        vc4_UnicamKernel;
     APTR                    vc4_Framebuffer;
     uint32_t                vc4_Pitch;
     uint16_t                vc4_Enabled;
