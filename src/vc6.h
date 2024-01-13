@@ -79,8 +79,8 @@ ULONG VC6_GetVBeamPos(struct BoardInfo *b asm("a0"));
 extern int unity_kernel;
 extern int kernel_start;
 
-int compute_nearest_neighbour_kernel(uint32_t *dlist_memory);
-int compute_scaling_kernel(uint32_t *dlist_memory, ULONG b, ULONG c);
+int compute_nearest_neighbour_kernel(volatile uint32_t *dlist_memory, ULONG offset);
+int compute_scaling_kernel(volatile uint32_t *dlist_memory, ULONG offset, ULONG b, ULONG c);
 
 void VC6_ConstructUnicamDL(struct VC4Base *VC4Base);
 

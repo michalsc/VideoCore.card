@@ -1013,9 +1013,7 @@ void VC6_ConstructUnicamDL(struct VC4Base *VC4Base)
     else
     {
         cnt -= 18;
-
-        if (config & UNICAMF_SMOOTHING) cnt -= 11;
-        
+       
         VC4Base->vc4_UnicamDL = cnt;
 
         /* Set control reg */
@@ -1049,11 +1047,10 @@ void VC6_ConstructUnicamDL(struct VC4Base *VC4Base)
 
         if (config & UNICAMF_SMOOTHING)
         {
-            ULONG kernel = cnt + 5;
-            displist[cnt++] = LE32(kernel);
-            displist[cnt++] = LE32(kernel);
-            displist[cnt++] = LE32(kernel);
-            displist[cnt++] = LE32(kernel);
+            displist[cnt++] = LE32(0xfc0);
+            displist[cnt++] = LE32(0xfc0);
+            displist[cnt++] = LE32(0xfc0);
+            displist[cnt++] = LE32(0xfc0);
         }
         else
         {
@@ -1084,7 +1081,7 @@ void VC6_ConstructUnicamDL(struct VC4Base *VC4Base)
 
             CloseLibrary(MathIeeeSingBasBase);
 
-            compute_scaling_kernel((uint32_t *)&displist[cnt], float_kernel_b, float_kernel_c);
+            compute_scaling_kernel(displist, 0xfc0, float_kernel_b, float_kernel_c);
         }
     }
 }

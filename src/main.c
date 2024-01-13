@@ -337,15 +337,15 @@ static void vc4_Task()
                             kernel_start ^= 0x10;
                             if (vmsg->SetKernel.kernel) {
                                 if (VC4Base->vc4_VideoCore6)
-                                    compute_scaling_kernel((uint32_t *)0xf2404000, vmsg->SetKernel.b, vmsg->SetKernel.c);
+                                    compute_scaling_kernel((uint32_t *)0xf2404000, kernel_start, vmsg->SetKernel.b, vmsg->SetKernel.c);
                                 else
-                                    compute_scaling_kernel((uint32_t *)0xf2402000, vmsg->SetKernel.b, vmsg->SetKernel.c);
+                                    compute_scaling_kernel((uint32_t *)0xf2402000, kernel_start, vmsg->SetKernel.b, vmsg->SetKernel.c);
                             }
                             else {
                                 if (VC4Base->vc4_VideoCore6)
-                                    compute_nearest_neighbour_kernel((uint32_t *)0xf2404000);
+                                    compute_nearest_neighbour_kernel((uint32_t *)0xf2404000, kernel_start);
                                 else
-                                    compute_nearest_neighbour_kernel((uint32_t *)0xf2402000);
+                                    compute_nearest_neighbour_kernel((uint32_t *)0xf2402000, kernel_start);
                             }
                             if (VC4Base->vc4_Kernel)
                             {
@@ -848,19 +848,19 @@ static int InitCard(REGARG(struct BoardInfo* bi, "a0"), REGARG(const char **Tool
 
     if (VC4Base->vc4_UseKernel)
         if (VC4Base->vc4_VideoCore6)
-            compute_scaling_kernel((uint32_t *)0xf2404000, VC4Base->vc4_Kernel_B, VC4Base->vc4_Kernel_C);
+            compute_scaling_kernel((uint32_t *)0xf2404000, kernel_start, VC4Base->vc4_Kernel_B, VC4Base->vc4_Kernel_C);
         else
-            compute_scaling_kernel((uint32_t *)0xf2402000, VC4Base->vc4_Kernel_B, VC4Base->vc4_Kernel_C);
+            compute_scaling_kernel((uint32_t *)0xf2402000, kernel_start, VC4Base->vc4_Kernel_B, VC4Base->vc4_Kernel_C);
     else
         if (VC4Base->vc4_VideoCore6)
-            compute_nearest_neighbour_kernel((uint32_t *)0xf2404000);
+            compute_nearest_neighbour_kernel((uint32_t *)0xf2404000, kernel_start);
         else
-            compute_nearest_neighbour_kernel((uint32_t *)0xf2402000);
+            compute_nearest_neighbour_kernel((uint32_t *)0xf2402000, kernel_start);
 
     if (VC4Base->vc4_VideoCore6)
-        compute_nearest_neighbour_kernel(((uint32_t *)0xf2404000) - kernel_start + unity_kernel);
+        compute_nearest_neighbour_kernel(((uint32_t *)0xf2404000), unity_kernel);
     else
-        compute_nearest_neighbour_kernel(((uint32_t *)0xf2402000) - kernel_start + unity_kernel);
+        compute_nearest_neighbour_kernel(((uint32_t *)0xf2402000), unity_kernel);
 
     if (VC4Base->vc4_VideoCore6)
     {

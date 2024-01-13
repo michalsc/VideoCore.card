@@ -160,7 +160,7 @@ int mitchell_netravali(ULONG x, ULONG b, ULONG c, struct Library *MathIeeeSingBa
 int unity_kernel = 0xfd0;
 int kernel_start = 0xff0;
 
-int compute_scaling_kernel(uint32_t *dlist_memory, ULONG b, ULONG c)
+int compute_scaling_kernel(volatile uint32_t *dlist_memory, ULONG offset, ULONG b, ULONG c)
 {
     struct ExecBase *SysBase = *(struct ExecBase **)4;
     struct Library *MathIeeeSingBasBase = OpenLibrary("mathieeesingbas.library", 0);
@@ -185,19 +185,19 @@ int compute_scaling_kernel(uint32_t *dlist_memory, ULONG b, ULONG c)
 
         for (int i=0; i<11; i++) {
             if (i < 6) {
-                dlist_memory[kernel_start + i] = LE32(half_kernel[i]);
+                dlist_memory[offset + i] = LE32(half_kernel[i]);
             } else {
-                dlist_memory[kernel_start + i] = LE32(half_kernel[11 - i - 1]);
+                dlist_memory[offset + i] = LE32(half_kernel[11 - i - 1]);
             }
         }
 
         CloseLibrary(MathIeeeSingBasBase);
     }
 
-    return kernel_start;
+    return offset;
 }
 
-int compute_nearest_neighbour_kernel(uint32_t *dlist_memory)
+int compute_nearest_neighbour_kernel(volatile uint32_t *dlist_memory, ULONG offset)
 {
     struct ExecBase *SysBase = *(struct ExecBase **)4;
     uint32_t half_kernel[6] = {0, 0, 0, 0, 0, 0};
@@ -210,13 +210,13 @@ int compute_nearest_neighbour_kernel(uint32_t *dlist_memory)
 
     for (int i=0; i<11; i++) {
         if (i < 6) {
-            dlist_memory[kernel_start + i] = LE32(half_kernel[i]);
+            dlist_memory[offset + i] = LE32(half_kernel[i]);
         } else {
-            dlist_memory[kernel_start + i] = LE32(half_kernel[11 - i - 1]);
+            dlist_memory[offset + i] = LE32(half_kernel[11 - i - 1]);
         }
     }
 
-    return kernel_start;
+    return offset;
 }
 
 UWORD CalculateBytesPerRow(REGARG(struct BoardInfo *b, "a0"), REGARG(UWORD width, "d0"), REGARG(RGBFTYPE format, "d7"))
@@ -1180,11 +1180,10 @@ void VC4_ConstructUnicamDL(struct VC4Base *VC4Base)
 
         if (config & UNICAMF_SMOOTHING)
         {
-            ULONG kernel = cnt + 5;
-            displist[cnt++] = LE32(kernel);
-            displist[cnt++] = LE32(kernel);
-            displist[cnt++] = LE32(kernel);
-            displist[cnt++] = LE32(kernel);
+            displist[cnt++] = LE32(0xfc0);
+            displist[cnt++] = LE32(0xfc0);
+            displist[cnt++] = LE32(0xfc0);
+            displist[cnt++] = LE32(0xfc0);
         }
         else
         {
@@ -1215,7 +1214,7 @@ void VC4_ConstructUnicamDL(struct VC4Base *VC4Base)
 
             CloseLibrary(MathIeeeSingBasBase);
 
-            compute_scaling_kernel((uint32_t *)&displist[cnt], float_kernel_b, float_kernel_c);
+            compute_scaling_kernel(displist, 0xfc0, float_kernel_b, float_kernel_c);
         }
     }
 }
