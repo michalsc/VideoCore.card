@@ -668,7 +668,7 @@ static int InitCard(REGARG(struct BoardInfo* bi, "a0"), REGARG(const char **Tool
     APTR UnicamBase = VC4Base->vc4_UnicamBase;
 
     /* If Unicam was activated on boot, pre-select CSI switch mode */
-    if (UnicamGetConfig() && UNICAMF_BOOT) VC4Base->vc4_SwitchMode = CSI;
+    if ((UnicamGetConfig() & UNICAMF_BOOT) != 0) VC4Base->vc4_SwitchMode = CSI;
 
     for (;ToolTypes[0] != NULL; ToolTypes++)
     {
