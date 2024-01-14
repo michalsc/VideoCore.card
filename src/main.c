@@ -830,6 +830,10 @@ static int InitCard(REGARG(struct BoardInfo* bi, "a0"), REGARG(const char **Tool
             {
                 VC4Base->vc4_SwitchMode = CSI;
             }
+            else if (m[0] == 'N' && m[1] == 'O' && m[3] == 'N' && m[4] == 'E' && m[5] == 0)
+            {
+                VC4Base->vc4_SwitchMode = None;
+            }
         }
         else if (_strcmp(tt, "VC4_SWITCH_INVERT") == '=')
         {
