@@ -97,9 +97,10 @@ void get_vc_memory(void **base, uint32_t *size, struct VC4Base * VC4Base)
     FBReq[6] = 0;
     FBReq[7] = 0;
 
-    CacheClearE(FBReq, len, CACRF_ClearD);
+    CachePreDMA(FBReq, &len, 0);
     mbox_send(8, (ULONG)FBReq, VC4Base);
     mbox_recv(8, VC4Base);
+    CachePostDMA(FBReq, &len, 0);
 
     if (base) {
         *base = (void *)(intptr_t)LE32(FBReq[5]);
@@ -128,9 +129,10 @@ struct Size get_display_size_(struct VC4Base * VC4Base)
     FBReq[6] = 0;
     FBReq[7] = 0;
 
-    CacheClearE(FBReq, len, CACRF_ClearD);
+    CachePreDMA(FBReq, &len, 0);
     mbox_send(8, (ULONG)FBReq, VC4Base);
     mbox_recv(8, VC4Base);
+    CachePostDMA(FBReq, &len, 0);
 
     sz.width = LE32(FBReq[5]);
     sz.height = LE32(FBReq[6]);
@@ -144,6 +146,7 @@ struct Size get_display_size(struct VC4Base *VC4Base)
     int c = 1;
     ULONG *FBReq = VC4Base->vc4_Request;
     struct Size dimension;
+    ULONG len;
 
     FBReq[c++] = 0;
     FBReq[c++] = LE32(0x40003);
@@ -155,9 +158,12 @@ struct Size get_display_size(struct VC4Base *VC4Base)
 
     FBReq[0] = LE32(c << 2);
 
-    CacheClearE(FBReq, c*4, CACRF_ClearD);
+    len = c * 4;
+
+    CachePreDMA(FBReq, &len, 0);
     mbox_send(8, (ULONG)FBReq, VC4Base);
     mbox_recv(8, VC4Base);
+    CachePostDMA(FBReq, &len, 0);
 
     dimension.width = LE32(FBReq[5]);
     dimension.height = LE32(FBReq[6]);
@@ -171,6 +177,7 @@ void init_display(struct Size dimensions, uint8_t depth, void **framebuffer, uin
 
     ULONG *FBReq = VC4Base->vc4_Request;
 
+    ULONG len;
     int c = 1;
     int pos_buffer_base = 0;
     int pos_buffer_pitch = 0;
@@ -210,9 +217,12 @@ void init_display(struct Size dimensions, uint8_t depth, void **framebuffer, uin
 
     FBReq[0] = LE32(c << 2);
 
-    CacheClearE(FBReq, c*4, CACRF_ClearD);
+    len = c * 4;
+
+    CachePreDMA(FBReq, &len, 0);
     mbox_send(8, (ULONG)FBReq, VC4Base);
     mbox_recv(8, VC4Base);
+    CachePostDMA(FBReq, &len, 0);
 
     uint32_t _base = LE32(FBReq[pos_buffer_base]);
     uint32_t _pitch = LE32(FBReq[pos_buffer_pitch]);
@@ -256,6 +266,7 @@ void release_framebuffer(struct VC4Base *VC4Base)
 {
     struct ExecBase *SysBase = VC4Base->vc4_SysBase;
     ULONG *FBReq = VC4Base->vc4_Request;
+    ULONG len = 6 * 4;
 
     /* Release framebuffer */
     FBReq[0] = LE32(4*6);
@@ -265,9 +276,10 @@ void release_framebuffer(struct VC4Base *VC4Base)
     FBReq[4] = 0;
     FBReq[5] = 0;
 
-    CacheClearE(FBReq, 4*6, CACRF_ClearD);
+    CachePreDMA(FBReq, &len, 0);
     mbox_send(8, (ULONG)FBReq, VC4Base);
     mbox_recv(8, VC4Base);
+    CachePostDMA(FBReq, &len, 0);
 }
 
 uint32_t upload_code(const void * code, uint32_t code_size, struct VC4Base *VC4Base)
@@ -277,6 +289,7 @@ uint32_t upload_code(const void * code, uint32_t code_size, struct VC4Base *VC4B
     ULONG handle;
     ULONG phys_addr;
     UBYTE *ptr;
+    ULONG len = 9 * 4;
 
     /* Allocate buffer for the code on VC4 */
     FBReq[0] = LE32(4*9);
@@ -289,9 +302,10 @@ uint32_t upload_code(const void * code, uint32_t code_size, struct VC4Base *VC4B
     FBReq[7] = LE32((3 << 2) | (1 << 6));   // COHERENT | DIRECT | HINT_PERMALOCK
     FBReq[8] = 0;
 
-    CacheClearE(FBReq, 4*9, CACRF_ClearD);
+    CachePreDMA(FBReq, &len, 0);
     mbox_send(8, (ULONG)FBReq, VC4Base);
     mbox_recv(8, VC4Base);
+    CachePostDMA(FBReq, &len, 0);
 
     handle = LE32(FBReq[5]);
 
@@ -304,9 +318,12 @@ uint32_t upload_code(const void * code, uint32_t code_size, struct VC4Base *VC4B
     FBReq[5] = LE32(handle);  // 32 bytes
     FBReq[6] = 0;
 
-    CacheClearE(FBReq, 4*9, CACRF_ClearD);
+    len = 7 * 4;
+
+    CachePreDMA(FBReq, &len, 0);
     mbox_send(8, (ULONG)FBReq, VC4Base);
     mbox_recv(8, VC4Base);
+    CachePostDMA(FBReq, &len, 0);
 
     /* Get physical address. This is in VPU's view! */
     phys_addr = LE32(FBReq[5]);
