@@ -281,6 +281,11 @@ void VC6_SetPanning(REGARG(struct BoardInfo *b, "a0"), REGARG(UBYTE *addr, "a1")
             scale = scale_x;
         }
 
+        if (VC4Base->vc4_IntegerScaler)
+        {
+            scale = 0x10000 / (ULONG)(0x10000 / scale);
+        }
+
         VC4Base->vc4_ScaleX = scale;
         VC4Base->vc4_ScaleY = (b->ModeInfo->Flags & GMF_DOUBLESCAN) ? scale >> 1 : scale;
 

@@ -105,6 +105,7 @@ struct VC4Base {
     UBYTE *                 vc4_SpriteShape;
     enum SwitchMode         vc4_SwitchMode;
     UBYTE                   vc4_SwitchInverted;
+    UBYTE                   vc4_IntegerScaler;
 };
 
 void bug(const char * restrict format, ...);
