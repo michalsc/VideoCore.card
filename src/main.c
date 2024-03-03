@@ -664,6 +664,7 @@ static int InitCard(REGARG(struct BoardInfo* bi, "a0"), REGARG(const char **Tool
     VC4Base->vc4_SwitchInverted = 0;
     VC4Base->vc4_Kernel_B = 0x3e800000; // 0.25
     VC4Base->vc4_Kernel_C = 0x3f400000; // 0.75
+    VC4Base->vc4_IntegerScaler = 0;
 
     APTR UnicamBase = VC4Base->vc4_UnicamBase;
 
@@ -846,6 +847,19 @@ static int InitCard(REGARG(struct BoardInfo* bi, "a0"), REGARG(const char **Tool
             else if (s[0] == '1' && s[1] == 0)
             {
                 VC4Base->vc4_SwitchInverted = 1;
+            }
+        }
+        else if (_strcmp(tt, "VC4_INTEGER_SCALING") == '=')
+        {
+            /* Invert the default behavior for selected RGB/HDMI switch mode */
+            const char *s = &tt[20];
+            if (s[0] == 'Y' && s[1] == 'E' && s[2] == 'S' && s[3] == 0)
+            {
+                VC4Base->vc4_IntegerScaler = 1;
+            }
+            else if (s[0] == '1' && s[1] == 0)
+            {
+                VC4Base->vc4_IntegerScaler = 1;
             }
         }
     }
