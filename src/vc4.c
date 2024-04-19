@@ -1219,7 +1219,7 @@ void VC4_ConstructUnicamDL(struct VC4Base *VC4Base)
 
             CloseLibrary(MathIeeeSingBasBase);
 
-            compute_scaling_kernel(displist, 0xfc0, float_kernel_b, float_kernel_c);
+            compute_scaling_kernel((volatile uint32_t *)displist, 0xfc0, float_kernel_b, float_kernel_c);
         }
     }
 }
