@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.14.0)
-project(VideoCore VERSION 1.2.0)
+project(VideoCore VERSION 1.2.1)
 get_verstring(VERSTRING)
 
 add_link_options(-ffreestanding -nostdlib -nostartfiles -Wl,-e,__start)

@@ -299,7 +299,9 @@ static int FindCard(REGARG(struct BoardInfo* bi, "a0"), REGARG(struct VC4Base *V
     {
         VC4Base->vc4_UnicamBase = UnicamBase;
         VC4Base->vc4_Unicambuffer = UnicamGetFramebuffer();
-        UnicamStart(VC4Base->vc4_Unicambuffer, 1, 0x22, 720, 576, 16);
+        ULONG mode = UnicamGetMode();
+        ULONG size = UnicamGetSize();
+        UnicamStart(VC4Base->vc4_Unicambuffer, 1, (mode >> 8) & 0xff, size >> 16, size & 0xffff, mode & 0xff);
     }
 
     return 1;

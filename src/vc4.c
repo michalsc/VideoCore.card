@@ -1062,6 +1062,10 @@ void VC4_ConstructUnicamDL(struct VC4Base *VC4Base)
     UBYTE scaler;
     UBYTE phase;
 
+    const ULONG fullHeight = UnicamGetSize() & 0xffff;
+    const ULONG fullWidth = UnicamGetSize() >> 16;
+    const ULONG bpp = (UnicamGetMode() & 0xff) / 8;
+
     ULONG config = UnicamGetConfig();
 
     ULONG KernelC = UnicamGetKernel();
@@ -1117,8 +1121,8 @@ void VC4_ConstructUnicamDL(struct VC4Base *VC4Base)
     }
 
     ULONG startAddress = (ULONG)VC4Base->vc4_Unicambuffer;
-    startAddress += crop_x * sizeof(UWORD);
-    startAddress += crop_y * 720 * sizeof(UWORD);
+    startAddress += crop_x * bpp;
+    startAddress += crop_y * fullWidth * bpp;
 
     if (unity)
     {
@@ -1143,7 +1147,7 @@ void VC4_ConstructUnicamDL(struct VC4Base *VC4Base)
         /* Set address */
         displist[cnt++] = LE32(0xc0000000 | startAddress);
         displist[cnt++] = LE32(0xdeadbeef);
-        displist[cnt++] = LE32(720*2);
+        displist[cnt++] = LE32(fullWidth * bpp);
 
         /* Done */
         displist[cnt++] = LE32(0x80000000);
@@ -1173,7 +1177,7 @@ void VC4_ConstructUnicamDL(struct VC4Base *VC4Base)
         /* Set address and pitch */
         displist[cnt++] = LE32(0xc0000000 | startAddress);
         displist[cnt++] = LE32(0xdeadbeef);
-        displist[cnt++] = LE32(720*2);
+        displist[cnt++] = LE32(fullWidth * bpp);
 
         /* LMB address */
         displist[cnt++] = LE32(0);
