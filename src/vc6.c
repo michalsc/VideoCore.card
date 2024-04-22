@@ -978,8 +978,11 @@ void VC6_ConstructUnicamDL(struct VC4Base *VC4Base)
             scale = 0x10000 / (ULONG)(0x10000 / scale);
         }
 
-        calc_width = (0x10000 * ((crop_w * aspect) / 1000)) / scale;
-        calc_height = (0x10000 * crop_h) / scale;
+        scale_x = scale * 1000 / aspect;
+        scale_y = scale;
+
+        calc_width = (0x10000 * crop_w) / scale_x;
+        calc_height = (0x10000 * crop_h) / scale_y;
 
         offset_x = (VC4Base->vc4_DispSize.width - calc_width) >> 1;
         offset_y = (VC4Base->vc4_DispSize.height - calc_height) >> 1;
@@ -1059,8 +1062,8 @@ void VC6_ConstructUnicamDL(struct VC4Base *VC4Base)
         displist[cnt++] = LE32(0);
 
         /* Set PPF Scaler */
-        displist[cnt++] = LE32((scale << 8) | (scaler << 30) | phase);
-        displist[cnt++] = LE32((scale << 8) | (scaler << 30) | phase);
+        displist[cnt++] = LE32((scale_x << 8) | (scaler << 30) | phase);
+        displist[cnt++] = LE32((scale_y << 8) | (scaler << 30) | phase);
         displist[cnt++] = LE32(0); // Scratch written by HVS
 
         if (config & UNICAMF_SMOOTHING)
