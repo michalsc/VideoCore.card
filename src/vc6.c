@@ -926,10 +926,9 @@ void VC6_ConstructUnicamDL(struct VC4Base *VC4Base)
     UBYTE scaler;
     UBYTE phase;
 
-    ULONG fullHeight = UnicamGetSize();
-    ULONG fullWidth = fullHeight >> 16;
-    fullHeight &= 0xffff;
-    ULONG bpp = (UnicamGetMode() & 0xff) / 8;
+    const ULONG fullHeight = UnicamGetSize() & 0xffff;
+    const ULONG fullWidth = UnicamGetSize() >> 16;
+    const ULONG bpp = (UnicamGetMode() & 0xff) / 8;
 
     ULONG config = UnicamGetConfig();
 
@@ -1003,8 +1002,12 @@ void VC6_ConstructUnicamDL(struct VC4Base *VC4Base)
             | VC6_CONTROL_UNITY
             | VC6_CONTROL_ALPHA_EXPAND
             | VC6_CONTROL_RGB_EXPAND
-            | mode_table[RGBFB_R5G6B5PC]
         );
+
+        if (bpp == 2)
+            displist[cnt - 1] |= LE32(mode_table[RGBFB_R5G6B5PC]);
+        else if (bpp == 3)
+            displist[cnt - 1] |= LE32(mode_table[RGBFB_R8G8B8]);
 
         /* Center it on the screen */
         displist[cnt++] = LE32(VC6_POS0_X(offset_x) | VC6_POS0_Y(offset_y));
@@ -1032,8 +1035,12 @@ void VC6_ConstructUnicamDL(struct VC4Base *VC4Base)
             | VC6_CONTROL_WORDS(17)
             | VC6_CONTROL_ALPHA_EXPAND
             | VC6_CONTROL_RGB_EXPAND
-            | mode_table[RGBFB_R5G6B5PC]
         );
+
+        if (bpp == 2)
+            displist[cnt - 1] |= LE32(mode_table[RGBFB_R5G6B5PC]);
+        else if (bpp == 3)
+            displist[cnt - 1] |= LE32(mode_table[RGBFB_R8G8B8]);
 
         /* Center plane on the screen */
         displist[cnt++] = LE32(VC6_POS0_X(offset_x) | VC6_POS0_Y(offset_y));

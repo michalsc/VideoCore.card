@@ -1136,8 +1136,12 @@ void VC4_ConstructUnicamDL(struct VC4Base *VC4Base)
             CONTROL_VALID
             | CONTROL_WORDS(7)
             | CONTROL_UNITY
-            | mode_table[RGBFB_R5G6B5PC]
         );
+
+        if (bpp == 2)
+            displist[cnt - 1] |= LE32(mode_table[RGBFB_R5G6B5PC]);
+        else if (bpp == 3)
+            displist[cnt - 1] |= LE32(mode_table[RGBFB_R8G8B8]);
 
         /* Center it on the screen */
         displist[cnt++] = LE32(POS0_X(offset_x) | POS0_Y(offset_y) | POS0_ALPHA(0xff));
@@ -1165,8 +1169,12 @@ void VC4_ConstructUnicamDL(struct VC4Base *VC4Base)
             CONTROL_VALID
             | CONTROL_WORDS(16)
             | 0x01800 
-            | mode_table[RGBFB_R5G6B5PC]
         );
+
+        if (bpp == 2)
+            displist[cnt - 1] |= LE32(mode_table[RGBFB_R5G6B5PC]);
+        else if (bpp == 3)
+            displist[cnt - 1] |= LE32(mode_table[RGBFB_R8G8B8]);
 
         /* Center plane on the screen */
         displist[cnt++] = LE32(POS0_X(offset_x) | POS0_Y(offset_y) | POS0_ALPHA(0xff));
