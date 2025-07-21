@@ -35,5 +35,5 @@ add_executable(Emu68-VC4.card
 target_link_libraries(Emu68-VC4.card devicetree amiga common unicam)
 target_compile_definitions(Emu68-VC4.card PUBLIC CARD_NAME="Emu68-VC4.card")
 
-install(PROGRAMS ${CMAKE_CURRENT_BINARY_DIR}/VideoCore.card DESTINATION ./VideoCore/)
-install(PROGRAMS ${CMAKE_CURRENT_BINARY_DIR}/Emu68-VC4.card DESTINATION ./VideoCore/)
+install(PROGRAMS ${CMAKE_CURRENT_BINARY_DIR}/VideoCore.card DESTINATION VideoCore/)
+install(PROGRAMS ${CMAKE_CURRENT_BINARY_DIR}/Emu68-VC4.card DESTINATION VideoCore/)
