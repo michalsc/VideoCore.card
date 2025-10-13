@@ -463,9 +463,9 @@ static int InitCard(REGARG(struct BoardInfo* bi, "a0"), REGARG(const char **Tool
     bi->CardBase = (struct CardBase *)VC4Base;
     bi->ExecBase = VC4Base->vc4_SysBase;
     bi->BoardName = "VideoCore";
-    bi->BoardType = 14;
-    bi->PaletteChipType = PCT_S3ViRGE;
-    bi->GraphicsControllerType = GCT_S3ViRGE;
+    bi->BoardType = BT_PiStorm;
+    bi->PaletteChipType = PCT_PiStorm;
+    bi->GraphicsControllerType = GCT_PiStorm;
 
     bi->Flags |= BIF_GRANTDIRECTACCESS | BIF_FLICKERFIXER | BIF_HARDWARESPRITE; // | BIF_BLITTER;
     bi->RGBFormats = 
