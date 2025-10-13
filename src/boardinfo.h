@@ -117,8 +117,20 @@ typedef enum {
         BT_Prototype7,
         BT_Reserved,
         BT_Reserved2,
-	BT_MNT_VA2000,
-	BT_MNT_ZZ9000,
+        BT_MNT_VA2000,
+        BT_MNT_ZZ9000,
+        BT_RetinaZ2,
+        BT_Visiona,
+        BT_GVP110,
+        BT_GBAPII,
+        BT_RainbowII,
+        BT_Voodoo,
+        BT_Matrox,
+        BT_S3Virge,
+        BT_IndiECS,
+        BT_RageXL,
+        BT_Radeon,
+        BT_PiStorm,
         BT_MaxBoardTypes
 } BTYPE;
 
@@ -142,10 +154,20 @@ typedef enum {
         PCT_3dfxVoodoo,         // 3dfx Voodoo internal
         PCT_TIPermedia2,                // TexasInstruments TVP4020 Permedia2 internal
         PCT_ATIRV100,                   // ATI Technologies Radeon/Radeon 7000 internal
-	PCT_reserved,
-	PCT_reserved2,
-	PCT_MNT_VA2000,
-	PCT_MNT_ZZ9000,
+        PCT_reserved,
+        PCT_reserved2,
+        PCT_MNT_VA2000,
+        PCT_MNT_ZZ9000,
+        PCT_ATT_20C492,
+        PCT_IMSG300,
+        PCT_IMSG364,
+        PCT_BT458,
+        PCT_ADV7120,
+        PCT_Matrox,
+        PCT_IndiECS,
+        PCT_RageXL,
+        PCT_Radeon,
+        PCT_PiStorm,
         PCT_MaxPaletteChipTypes
 } PCTYPE;
 
@@ -168,8 +190,16 @@ typedef enum {
         GCT_ATIRV100,
         GCT_reserved,
         GCT_reserved2,
-	GCT_MNT_VA2000,
-	GCT_MNT_ZZ9000,
+        GCT_MNT_VA2000,
+        GCT_MNT_ZZ9000,
+        GCT_NCR77C22E,
+        GCT_IMSG300,
+        GCT_IMSG364,
+        GCT_Matrox,
+        GCT_IndiECS,
+        GCT_RageXL,
+        GCT_Radeon,
+        GCT_PiStorm,
         GCT_MaxGraphicsControllerTypes
 } GCTYPE;
 
