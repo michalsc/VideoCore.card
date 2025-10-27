@@ -11,9 +11,6 @@ if(NOT TARGET unicam)
     add_subdirectory(unicam.resource EXCLUDE_FROM_ALL)
 endif()
 
-#add_library(VideoCore INTERFACE)
-#target_include_directories(VideoCore INTERFACE src)
-
 add_executable(VideoCore.card
     src/main.c
     src/mbox.c
