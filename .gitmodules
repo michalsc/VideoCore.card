@@ -1,0 +1,6 @@
+[submodule "devicetree.resource"]
+	path = devicetree.resource
+	url = https://github.com/michalsc/devicetree.resource.git
+[submodule "unicam.resource"]
+	path = unicam.resource
+	url = https://github.com/michalsc/unicam.resource.git
