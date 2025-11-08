@@ -354,15 +354,15 @@ static void vc4_Task()
                                 // Wait for vertical blank before updating the display list
                                 do { asm volatile("nop"); } while((LE32(*stat) & 0xfff) != VC4Base->vc4_DispSize.height);
 
-                                VC4Base->vc4_Kernel[0] = LE32(kernel_start);
-                                VC4Base->vc4_Kernel[1] = LE32(kernel_start);
-                                VC4Base->vc4_Kernel[2] = LE32(kernel_start);
-                                VC4Base->vc4_Kernel[3] = LE32(kernel_start);
+                                wr32le(&VC4Base->vc4_Kernel[0], kernel_start);
+                                wr32le(&VC4Base->vc4_Kernel[1], kernel_start);
+                                wr32le(&VC4Base->vc4_Kernel[2], kernel_start);
+                                wr32le(&VC4Base->vc4_Kernel[3], kernel_start);
 
-                                VC4Base->vc4_MouseCoord[12] = LE32(kernel_start);
-                                VC4Base->vc4_MouseCoord[13] = LE32(kernel_start);
-                                VC4Base->vc4_MouseCoord[14] = LE32(kernel_start);
-                                VC4Base->vc4_MouseCoord[15] = LE32(kernel_start);
+                                wr32le(&VC4Base->vc4_MouseCoord[12], kernel_start);
+                                wr32le(&VC4Base->vc4_MouseCoord[13], kernel_start);
+                                wr32le(&VC4Base->vc4_MouseCoord[14], kernel_start);
+                                wr32le(&VC4Base->vc4_MouseCoord[15], kernel_start);
                             }
                             break;
                         
@@ -388,22 +388,22 @@ static void vc4_Task()
                             if (VC4Base->vc4_PlaneScalerX) {
                                 ULONG val = LE32(*VC4Base->vc4_PlaneScalerX);
                                 val = (val & 0x3fffffff) | (vmsg->SetScaler.val << 30);
-                                *VC4Base->vc4_PlaneScalerX = LE32(val);
+                                wr32le(VC4Base->vc4_PlaneScalerX, val);
                             }
                             if (VC4Base->vc4_PlaneScalerY) {
                                 ULONG val = LE32(*VC4Base->vc4_PlaneScalerY);
                                 val = (val & 0x3fffffff) | (vmsg->SetScaler.val << 30);
-                                *VC4Base->vc4_PlaneScalerY = LE32(val);
+                                wr32le(VC4Base->vc4_PlaneScalerY, val);
                             }
 
                             if (VC4Base->vc4_ScaleX != 0x10000) {
                                 ULONG val = LE32(VC4Base->vc4_MouseCoord[9]);
                                 val = (val & 0x3fffffff) | (vmsg->SetScaler.val << 30);
-                                VC4Base->vc4_MouseCoord[9] = LE32(val);
+                                wr32le(&VC4Base->vc4_MouseCoord[9], val);
 
                                 val = LE32(VC4Base->vc4_MouseCoord[10]);
                                 val = (val & 0x3fffffff) | (vmsg->SetScaler.val << 30);
-                                VC4Base->vc4_MouseCoord[10] = LE32(val);
+                                wr32le(&VC4Base->vc4_MouseCoord[10], val);
                             }
                             break;
                         
@@ -423,22 +423,22 @@ static void vc4_Task()
                             if (VC4Base->vc4_PlaneScalerX) {
                                 ULONG val = LE32(*VC4Base->vc4_PlaneScalerX);
                                 val = (val & 0xffffff00) | (vmsg->SetPhase.val & 0xff);
-                                *VC4Base->vc4_PlaneScalerX = LE32(val);
+                                wr32le(VC4Base->vc4_PlaneScalerX, val);
                             }
                             if (VC4Base->vc4_PlaneScalerY) {
                                 ULONG val = LE32(*VC4Base->vc4_PlaneScalerY);
                                 val = (val & 0xffffff00) | (vmsg->SetPhase.val & 0xff);
-                                *VC4Base->vc4_PlaneScalerY = LE32(val);
+                                wr32le(VC4Base->vc4_PlaneScalerY, val);
                             }
 
                             if (VC4Base->vc4_ScaleX != 0x10000) {
                                 ULONG val = LE32(VC4Base->vc4_MouseCoord[9]);
                                 val = (val & 0xffffff00) | (vmsg->SetPhase.val & 0xff);
-                                VC4Base->vc4_MouseCoord[9] = LE32(val);
+                                wr32le(&VC4Base->vc4_MouseCoord[9], val);
 
                                 val = LE32(VC4Base->vc4_MouseCoord[10]);
                                 val = (val & 0xffffff00) | (vmsg->SetPhase.val & 0xff);
-                                VC4Base->vc4_MouseCoord[10] = LE32(val);
+                                wr32le(&VC4Base->vc4_MouseCoord[10], val);
                             }
                             break;
                     }

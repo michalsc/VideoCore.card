@@ -185,9 +185,9 @@ int compute_scaling_kernel(volatile uint32_t *dlist_memory, ULONG offset, ULONG 
 
         for (int i=0; i<11; i++) {
             if (i < 6) {
-                dlist_memory[offset + i] = LE32(half_kernel[i]);
+                wr32le(&dlist_memory[offset + i], half_kernel[i]);
             } else {
-                dlist_memory[offset + i] = LE32(half_kernel[11 - i - 1]);
+                wr32le(&dlist_memory[offset + i], half_kernel[11 - i - 1]);
             }
         }
 
@@ -210,9 +210,9 @@ int compute_nearest_neighbour_kernel(volatile uint32_t *dlist_memory, ULONG offs
 
     for (int i=0; i<11; i++) {
         if (i < 6) {
-            dlist_memory[offset + i] = LE32(half_kernel[i]);
+            wr32le(&dlist_memory[offset + i], half_kernel[i]);
         } else {
-            dlist_memory[offset + i] = LE32(half_kernel[11 - i - 1]);
+            wr32le(&dlist_memory[offset + i], half_kernel[11 - i - 1]);
         }
     }
 
@@ -377,10 +377,10 @@ UWORD SetSwitch(REGARG(struct BoardInfo *b, "a0"), REGARG(UWORD enabled, "d0"))
                 break;
            case CSI:
                 if (!en) {
-                    *(volatile uint32_t *)0xf2400024 = LE32(VC4Base->vc4_UnicamDL);
+                    wr32le((volatile uint32_t *)0xf2400024, VC4Base->vc4_UnicamDL);
                 }
                 else {
-                    *(volatile uint32_t *)0xf2400024 = LE32(VC4Base->vc4_ActivePlane);
+                    wr32le((volatile uint32_t *)0xf2400024, VC4Base->vc4_ActivePlane);
                 }
                 break;
         }
@@ -509,12 +509,12 @@ void SetPanning(REGARG(struct BoardInfo *b, "a0"), REGARG(UBYTE *addr, "a1"),
                 calc_width, calc_height, offset_x, offset_y);
     }
 
-    volatile ULONG *displist = (ULONG *)0xf2402000;
+    volatile uint32_t *displist = (uint32_t *)0xf2402000;
    
     if (unity) {
         if (offset_only) {
             pos = VC4Base->vc4_ActivePlane;
-            displist[pos + 4] = LE32(0xc0000000 | (ULONG)addr + y_offset * bytes_per_row + x_offset * bytes_per_pix);
+            wr32le(&displist[pos + 4], 0xc0000000 | (ULONG)addr + y_offset * bytes_per_row + x_offset * bytes_per_pix);
             if (VC4Base->vc4_SpriteVisible)
                 SetSpritePosition(b, VC4Base->vc4_MouseX, VC4Base->vc4_MouseY, format);
         }
@@ -523,15 +523,15 @@ void SetPanning(REGARG(struct BoardInfo *b, "a0"), REGARG(UBYTE *addr, "a1"),
             int cnt = pos + 1;
 
             VC4Base->vc4_PlaneCoord = &displist[cnt];
-            displist[cnt++] = LE32(POS0_X(offset_x) | POS0_Y(offset_y) | POS0_ALPHA(0xff));
+            wr32le(&displist[cnt++], POS0_X(offset_x) | POS0_Y(offset_y) | POS0_ALPHA(0xff));
             
-            displist[cnt++] = LE32(POS2_H(b->ModeInfo->Height) | POS2_W(b->ModeInfo->Width) | (1 << 30));
-            displist[cnt++] = LE32(0xdeadbeef);
-            displist[cnt++] = LE32(0xc0000000 | (ULONG)addr + y_offset * bytes_per_row + x_offset * bytes_per_pix);
-            displist[cnt++] = LE32(0xdeadbeef);
-            displist[cnt++] = LE32(bytes_per_row);
+            wr32le(&displist[cnt++], POS2_H(b->ModeInfo->Height) | POS2_W(b->ModeInfo->Width) | (1 << 30));
+            wr32le(&displist[cnt++], 0xdeadbeef);
+            wr32le(&displist[cnt++], 0xc0000000 | (ULONG)addr + y_offset * bytes_per_row + x_offset * bytes_per_pix);
+            wr32le(&displist[cnt++], 0xdeadbeef);
+            wr32le(&displist[cnt++], bytes_per_row);
 
-            displist[pos] = LE32(
+            wr32le(&displist[pos],
                 CONTROL_VALID
                 | CONTROL_WORDS(cnt - pos)
                 | CONTROL_UNITY
@@ -544,59 +544,59 @@ void SetPanning(REGARG(struct BoardInfo *b, "a0"), REGARG(UBYTE *addr, "a1"),
             cnt = mouse_pos + 1;
 
             VC4Base->vc4_MouseCoord = &displist[cnt];
-            displist[cnt++] = LE32( POS0_X(offset_x + VC4Base->vc4_MouseX - x_offset) |
-                                    POS0_Y(offset_y + VC4Base->vc4_MouseY - y_offset) | POS0_ALPHA(0xff));
-            displist[cnt++] = LE32(POS1_H(sprite_height) | POS1_W(sprite_width));
-            displist[cnt++] = LE32(POS2_H(MAXSPRITEHEIGHT) | POS2_W(MAXSPRITEWIDTH) | (SCALER_POS2_ALPHA_MODE_PIPELINE << SCALER_POS2_ALPHA_MODE_SHIFT));
-            displist[cnt++] = LE32(0xdeadbeef); // Scratch written by HVS
+            wr32le(&displist[cnt++], POS0_X(offset_x + VC4Base->vc4_MouseX - x_offset) |
+                                     POS0_Y(offset_y + VC4Base->vc4_MouseY - y_offset) | POS0_ALPHA(0xff));
+            wr32le(&displist[cnt++], POS1_H(sprite_height) | POS1_W(sprite_width));
+            wr32le(&displist[cnt++], POS2_H(MAXSPRITEHEIGHT) | POS2_W(MAXSPRITEWIDTH) | (SCALER_POS2_ALPHA_MODE_PIPELINE << SCALER_POS2_ALPHA_MODE_SHIFT));
+            wr32le(&displist[cnt++], 0xdeadbeef); // Scratch written by HVS
 
-            displist[cnt++] = LE32(0xc0000000 | (ULONG)VC4Base->vc4_SpriteShape);
-            displist[cnt++] = LE32(0xdeadbeef); // Scratch written by HVS
+            wr32le(&displist[cnt++], 0xc0000000 | (ULONG)VC4Base->vc4_SpriteShape);
+            wr32le(&displist[cnt++], 0xdeadbeef); // Scratch written by HVS
 
             // Write pitch
-            displist[cnt++] = LE32(MAXSPRITEWIDTH);
+            wr32le(&displist[cnt++], MAXSPRITEWIDTH);
 
             int clut_off = cnt;
-            displist[cnt++] = LE32(0xc0000000 | (0x300 << 2));
+            wr32le(&displist[cnt++], 0xc0000000 | (0x300 << 2));
 
             // LMB address - just behind LMB of main plane
-            displist[cnt++] = LE32(16 * b->ModeInfo->Width / 2);
+            wr32le(&displist[cnt++], 16 * b->ModeInfo->Width / 2);
 
             // Write PPF Scaling
-            displist[cnt++] = LE32((scale << 8) | VC4Base->vc4_Scaler | VC4Base->vc4_Phase);
+            wr32le(&displist[cnt++], (scale << 8) | VC4Base->vc4_Scaler | VC4Base->vc4_Phase);
             if (b->ModeInfo->Flags & GMF_DOUBLESCAN)
-                displist[cnt++] = LE32(((scale << 7) & ~0xff) | VC4Base->vc4_Scaler | VC4Base->vc4_Phase);
+                wr32le(&displist[cnt++], ((scale << 7) & ~0xff) | VC4Base->vc4_Scaler | VC4Base->vc4_Phase);
             else
-                displist[cnt++] = LE32((scale << 8) | VC4Base->vc4_Scaler | VC4Base->vc4_Phase);
-            displist[cnt++] = LE32(0); // Scratch written by HVS
+                wr32le(&displist[cnt++], (scale << 8) | VC4Base->vc4_Scaler | VC4Base->vc4_Phase);
+            wr32le(&displist[cnt++], 0); // Scratch written by HVS
 
             // Write scaling kernel offset in dlist
-            displist[cnt++] = LE32(unity_kernel);
-            displist[cnt++] = LE32(unity_kernel);
-            displist[cnt++] = LE32(unity_kernel);
-            displist[cnt++] = LE32(unity_kernel);
+            wr32le(&displist[cnt++], unity_kernel);
+            wr32le(&displist[cnt++], unity_kernel);
+            wr32le(&displist[cnt++], unity_kernel);
+            wr32le(&displist[cnt++], unity_kernel);
 
-            displist[mouse_pos] = LE32(
+            wr32le(&displist[mouse_pos],
                 CONTROL_VALID               |
                 CONTROL_WORDS(cnt-mouse_pos)    |
                 0x01800 | 
                 mode_table[RGBFB_CLUT]
             );
 
-            displist[cnt++] = LE32(0x80000000);
+            wr32le(&displist[cnt++], 0x80000000);
 
-            displist[clut_off] = LE32(0xc0000000 | (cnt << 2));
+            wr32le(&displist[clut_off], 0xc0000000 | (cnt << 2));
 
-            displist[cnt++] = LE32(0x00000000);
+            wr32le(&displist[cnt++], 0x00000000);
             VC4Base->vc4_MousePalette = &displist[cnt];
-            displist[cnt++] = LE32(VC4Base->vc4_SpriteColors[0]);
-            displist[cnt++] = LE32(VC4Base->vc4_SpriteColors[1]);
-            displist[cnt++] = LE32(VC4Base->vc4_SpriteColors[2]);
+            wr32le(&displist[cnt++], VC4Base->vc4_SpriteColors[0]);
+            wr32le(&displist[cnt++], VC4Base->vc4_SpriteColors[1]);
+            wr32le(&displist[cnt++], VC4Base->vc4_SpriteColors[2]);
         }
     } else {
         if (offset_only) {
             pos = VC4Base->vc4_ActivePlane;
-            displist[pos + 5] = LE32(0xc0000000 | (ULONG)addr + y_offset * bytes_per_row + x_offset * bytes_per_pix);
+            wr32le(&displist[pos + 5], 0xc0000000 | (ULONG)addr + y_offset * bytes_per_row + x_offset * bytes_per_pix);
             if (VC4Base->vc4_SpriteVisible)
                 SetSpritePosition(b, VC4Base->vc4_MouseX, VC4Base->vc4_MouseY, format);
         }
@@ -606,47 +606,47 @@ void SetPanning(REGARG(struct BoardInfo *b, "a0"), REGARG(UBYTE *addr, "a1"),
             int cnt = pos + 1;
 
             VC4Base->vc4_PlaneCoord = &displist[cnt];
-            displist[cnt++] = LE32(POS0_X(offset_x) | POS0_Y(offset_y) | POS0_ALPHA(0xff));
-            displist[cnt++] = LE32(POS1_H(calc_height) | POS1_W(calc_width));
-            displist[cnt++] = LE32(POS2_H(b->ModeInfo->Height) | POS2_W(b->ModeInfo->Width) | (SCALER_POS2_ALPHA_MODE_FIXED << SCALER_POS2_ALPHA_MODE_SHIFT));
-            displist[cnt++] = LE32(0xdeadbeef); // Scratch written by HVS
+            wr32le(&displist[cnt++], POS0_X(offset_x) | POS0_Y(offset_y) | POS0_ALPHA(0xff));
+            wr32le(&displist[cnt++], POS1_H(calc_height) | POS1_W(calc_width));
+            wr32le(&displist[cnt++], POS2_H(b->ModeInfo->Height) | POS2_W(b->ModeInfo->Width) | (SCALER_POS2_ALPHA_MODE_FIXED << SCALER_POS2_ALPHA_MODE_SHIFT));
+            wr32le(&displist[cnt++], 0xdeadbeef); // Scratch written by HVS
 
-            displist[cnt++] = LE32(0xc0000000 | (ULONG)addr + y_offset * bytes_per_row + x_offset * bytes_per_pix);
-            displist[cnt++] = LE32(0xdeadbeef); // Scratch written by HVS
+            wr32le(&displist[cnt++], 0xc0000000 | (ULONG)addr + y_offset * bytes_per_row + x_offset * bytes_per_pix);
+            wr32le(&displist[cnt++], 0xdeadbeef); // Scratch written by HVS
 
             // Write pitch
-            displist[cnt++] = LE32(bytes_per_row);
+            wr32le(&displist[cnt++], bytes_per_row);
 
             // Palette mode - offset of palette placed in dlist
             if (format == RGBFB_CLUT) {
-                displist[cnt++] = LE32(0xc0000000 | (0x300 << 2));
+                wr32le(&displist[cnt++], 0xc0000000 | (0x300 << 2));
             }
 
             // LMB address
-            displist[cnt++] = LE32(0);
+            wr32le(&displist[cnt++], 0);
 
             // Write PPF Scaling
             VC4Base->vc4_PlaneScalerX = &displist[cnt];
             VC4Base->vc4_PlaneScalerY = &displist[cnt+1];
 
-            displist[cnt++] = LE32((scale << 8) | VC4Base->vc4_Scaler | VC4Base->vc4_Phase);
+            wr32le(&displist[cnt++], (scale << 8) | VC4Base->vc4_Scaler | VC4Base->vc4_Phase);
             if (b->ModeInfo->Flags & GMF_DOUBLESCAN)
-                displist[cnt++] = LE32(((scale << 7) & ~0xff) | VC4Base->vc4_Scaler | VC4Base->vc4_Phase);
+                wr32le(&displist[cnt++], ((scale << 7) & ~0xff) | VC4Base->vc4_Scaler | VC4Base->vc4_Phase);
             else
-                displist[cnt++] = LE32((scale << 8) | VC4Base->vc4_Scaler | VC4Base->vc4_Phase);
-            displist[cnt++] = LE32(0); // Scratch written by HVS
+                wr32le(&displist[cnt++], (scale << 8) | VC4Base->vc4_Scaler | VC4Base->vc4_Phase);
+            wr32le(&displist[cnt++], 0); // Scratch written by HVS
 
             // Write scaling kernel offset in dlist
             VC4Base->vc4_Kernel = &displist[cnt];
-            displist[cnt++] = LE32(kernel_start);
-            displist[cnt++] = LE32(kernel_start);
-            displist[cnt++] = LE32(kernel_start);
-            displist[cnt++] = LE32(kernel_start);
+            wr32le(&displist[cnt++], kernel_start);
+            wr32le(&displist[cnt++], kernel_start);
+            wr32le(&displist[cnt++], kernel_start);
+            wr32le(&displist[cnt++], kernel_start);
 
-            displist[pos] = LE32(
-                CONTROL_VALID             |
-                CONTROL_WORDS(cnt-pos)    |
-                0x01800 | 
+            wr32le(&displist[pos],
+                CONTROL_VALID           |
+                CONTROL_WORDS(cnt-pos)  |
+                0x01800                 |
                 mode_table[format]
             );
 
@@ -654,54 +654,54 @@ void SetPanning(REGARG(struct BoardInfo *b, "a0"), REGARG(UBYTE *addr, "a1"),
             cnt = mouse_pos + 1;
 
             VC4Base->vc4_MouseCoord = &displist[cnt];
-            displist[cnt++] = LE32( POS0_X(offset_x + 0x10000 * (VC4Base->vc4_MouseX - x_offset) / VC4Base->vc4_ScaleX) |
-                                    POS0_Y(offset_y + 0x10000 * (VC4Base->vc4_MouseY - y_offset) / VC4Base->vc4_ScaleY) | POS0_ALPHA(0xff));
-            displist[cnt++] = LE32(POS1_H(sprite_height) | POS1_W(sprite_width));
-            displist[cnt++] = LE32(POS2_H(MAXSPRITEHEIGHT) | POS2_W(MAXSPRITEWIDTH) | (SCALER_POS2_ALPHA_MODE_PIPELINE << SCALER_POS2_ALPHA_MODE_SHIFT));
-            displist[cnt++] = LE32(0xdeadbeef); // Scratch written by HVS
+            wr32le(&displist[cnt++], POS0_X(offset_x + 0x10000 * (VC4Base->vc4_MouseX - x_offset) / VC4Base->vc4_ScaleX) |
+                                     POS0_Y(offset_y + 0x10000 * (VC4Base->vc4_MouseY - y_offset) / VC4Base->vc4_ScaleY) | POS0_ALPHA(0xff));
+            wr32le(&displist[cnt++], POS1_H(sprite_height) | POS1_W(sprite_width));
+            wr32le(&displist[cnt++], POS2_H(MAXSPRITEHEIGHT) | POS2_W(MAXSPRITEWIDTH) | (SCALER_POS2_ALPHA_MODE_PIPELINE << SCALER_POS2_ALPHA_MODE_SHIFT));
+            wr32le(&displist[cnt++], 0xdeadbeef); // Scratch written by HVS
 
-            displist[cnt++] = LE32(0xc0000000 | (ULONG)VC4Base->vc4_SpriteShape);
-            displist[cnt++] = LE32(0xdeadbeef); // Scratch written by HVS
+            wr32le(&displist[cnt++], 0xc0000000 | (ULONG)VC4Base->vc4_SpriteShape);
+            wr32le(&displist[cnt++], 0xdeadbeef); // Scratch written by HVS
 
             // Write pitch
-            displist[cnt++] = LE32(MAXSPRITEWIDTH);
+            wr32le(&displist[cnt++], MAXSPRITEWIDTH);
 
             int clut_off = cnt;
-            displist[cnt++] = LE32(0xc0000000 | (0x300 << 2));
+            wr32le(&displist[cnt++], 0xc0000000 | (0x300 << 2));
 
             // LMB address - just behind LMB of main plane
-            displist[cnt++] = LE32(16 * b->ModeInfo->Width / 2);
+            wr32le(&displist[cnt++], 16 * b->ModeInfo->Width / 2);
 
             // Write PPF Scaling
-            displist[cnt++] = LE32((scale << 8) | VC4Base->vc4_Scaler | VC4Base->vc4_Phase);
+            wr32le(&displist[cnt++], (scale << 8) | VC4Base->vc4_Scaler | VC4Base->vc4_Phase);
             if (b->ModeInfo->Flags & GMF_DOUBLESCAN)
-                displist[cnt++] = LE32(((scale << 7) & ~0xff) | VC4Base->vc4_Scaler | VC4Base->vc4_Phase);
+                wr32le(&displist[cnt++], ((scale << 7) & ~0xff) | VC4Base->vc4_Scaler | VC4Base->vc4_Phase);
             else
-                displist[cnt++] = LE32((scale << 8) | VC4Base->vc4_Scaler | VC4Base->vc4_Phase);
-            displist[cnt++] = LE32(0); // Scratch written by HVS
+                wr32le(&displist[cnt++], (scale << 8) | VC4Base->vc4_Scaler | VC4Base->vc4_Phase);
+            wr32le(&displist[cnt++], 0); // Scratch written by HVS
 
             // Write scaling kernel offset in dlist
-            displist[cnt++] = LE32(kernel_start);
-            displist[cnt++] = LE32(kernel_start);
-            displist[cnt++] = LE32(kernel_start);
-            displist[cnt++] = LE32(kernel_start);
+            wr32le(&displist[cnt++], kernel_start);
+            wr32le(&displist[cnt++], kernel_start);
+            wr32le(&displist[cnt++], kernel_start);
+            wr32le(&displist[cnt++], kernel_start);
 
-            displist[mouse_pos] = LE32(
+            wr32le(&displist[mouse_pos],
                 CONTROL_VALID               |
                 CONTROL_WORDS(cnt-mouse_pos)    |
                 0x01800 | 
                 mode_table[RGBFB_CLUT]
             );
 
-            displist[cnt++] = LE32(0x80000000);
+            wr32le(&displist[cnt++], 0x80000000);
 
-            displist[clut_off] = LE32(0xc0000000 | (cnt << 2));
+            wr32le(&displist[clut_off], 0xc0000000 | (cnt << 2));
 
-            displist[cnt++] = LE32(0x00000000);
+            wr32le(&displist[cnt++], 0x00000000);
             VC4Base->vc4_MousePalette = &displist[cnt];
-            displist[cnt++] = LE32(VC4Base->vc4_SpriteColors[0]);
-            displist[cnt++] = LE32(VC4Base->vc4_SpriteColors[1]);
-            displist[cnt++] = LE32(VC4Base->vc4_SpriteColors[2]);
+            wr32le(&displist[cnt++], VC4Base->vc4_SpriteColors[0]);
+            wr32le(&displist[cnt++], VC4Base->vc4_SpriteColors[1]);
+            wr32le(&displist[cnt++], VC4Base->vc4_SpriteColors[2]);
 #if 0
             for (int i=pos; i < cnt; i++) {
                 ULONG args[] = {
@@ -721,7 +721,7 @@ void SetPanning(REGARG(struct BoardInfo *b, "a0"), REGARG(UBYTE *addr, "a1"),
         // Wait for vertical blank before updating the display list
         do { asm volatile("nop"); } while((LE32(*stat) & 0xfff) != VC4Base->vc4_DispSize.height);
 
-        *(volatile uint32_t *)0xf2400024 = LE32(pos);
+        wr32le((volatile uint32_t *)0xf2400024, pos);
         VC4Base->vc4_ActivePlane = pos;
     }
 }
@@ -746,7 +746,7 @@ void SetColorArray(REGARG(struct BoardInfo *b, "a0"), REGARG(UWORD start, "d0"),
     
     for(int i = start; i < j; i++) {
         unsigned long xrgb = 0xff000000 | (b->CLUT[i].Blue) | (b->CLUT[i].Green << 8) | (b->CLUT[i].Red << 16);
-        displist[0x300 + i] = LE32(xrgb);
+        wr32le(&displist[0x300 + i], xrgb);
     }
 }
 
@@ -898,13 +898,13 @@ void SetSprite(REGARG(struct BoardInfo *b, "a0"), REGARG(BOOL enable, "d0"), REG
             _y = VC4Base->vc4_MouseY;
 
         if (VC4Base->vc4_MouseCoord) {
-            VC4Base->vc4_MouseCoord[0] = LE32(POS0_X(_x) | POS0_Y(_y) | POS0_ALPHA(0xff));
+            wr32le(&VC4Base->vc4_MouseCoord[0], POS0_X(_x) | POS0_Y(_y) | POS0_ALPHA(0xff));
         }
     }
     else
     {
         if (VC4Base->vc4_MouseCoord) {
-            VC4Base->vc4_MouseCoord[0] = LE32(POS0_X(-1) | POS0_Y(-1) | POS0_ALPHA(0xff));
+            wr32le(&VC4Base->vc4_MouseCoord[0], POS0_X(-1) | POS0_Y(-1) | POS0_ALPHA(0xff));
         }
     }
 }
@@ -942,7 +942,7 @@ void SetSpritePosition(REGARG(struct BoardInfo *b, "a0"), REGARG(WORD x, "d0"),
     _y += VC4Base->vc4_OffsetY;
 
     if (VC4Base->vc4_MouseCoord) {   
-        VC4Base->vc4_MouseCoord[0] = LE32(POS0_X(_x) | POS0_Y(_y) | POS0_ALPHA(0xff));
+        wr32le(&VC4Base->vc4_MouseCoord[0], POS0_X(_x) | POS0_Y(_y) | POS0_ALPHA(0xff));
     }
 }
 
@@ -1022,7 +1022,7 @@ void SetSpriteColor(REGARG(struct BoardInfo *b, "a0"), REGARG(UBYTE idx, "d0"),
     if (idx < 3) {
         VC4Base->vc4_SpriteColors[idx] = (VC4Base->vc4_SpriteAlpha << 24) | (R << 16) | (G << 8) | B;
         if (VC4Base->vc4_MousePalette) {
-            VC4Base->vc4_MousePalette[idx] = LE32(VC4Base->vc4_SpriteColors[idx]);
+            wr32le(&VC4Base->vc4_MousePalette[idx], VC4Base->vc4_SpriteColors[idx]);
         }
     }
 }
@@ -1086,7 +1086,7 @@ void VC4_ConstructUnicamDL(struct VC4Base *VC4Base)
 
     ULONG cnt = 0x300; // Initial pointer to UnicamDL
 
-    volatile ULONG *displist = (ULONG *)0xf2402000;
+    volatile uint32_t *displist = (uint32_t *)0xf2402000;
 
     if (crop_w == VC4Base->vc4_DispSize.width &&
         crop_h == VC4Base->vc4_DispSize.height && aspect == 1000)
@@ -1136,86 +1136,88 @@ void VC4_ConstructUnicamDL(struct VC4Base *VC4Base)
         VC4Base->vc4_UnicamDL = cnt;
 
         /* Set control reg */
-        displist[cnt++] = LE32(
+        ULONG control =
             CONTROL_VALID
             | CONTROL_WORDS(7)
-            | CONTROL_UNITY
-        );
+            | CONTROL_UNITY;
 
         if (bpp == 2)
-            displist[cnt - 1] |= LE32(mode_table[RGBFB_R5G6B5PC]);
+            control |= mode_table[RGBFB_R5G6B5PC];
         else if (bpp == 3)
-            displist[cnt - 1] |= LE32(mode_table[RGBFB_R8G8B8]);
+            control |= mode_table[RGBFB_R8G8B8];
+
+        wr32le(&displist[cnt++], control);
 
         /* Center it on the screen */
-        displist[cnt++] = LE32(POS0_X(offset_x) | POS0_Y(offset_y) | POS0_ALPHA(0xff));
-        displist[cnt++] = LE32(POS2_H(crop_h) | POS2_W(crop_w) | (1 << 30));
-        displist[cnt++] = LE32(0xdeadbeef);
+        wr32le(&displist[cnt++], POS0_X(offset_x) | POS0_Y(offset_y) | POS0_ALPHA(0xff));
+        wr32le(&displist[cnt++], POS2_H(crop_h) | POS2_W(crop_w) | (1 << 30));
+        wr32le(&displist[cnt++], 0xdeadbeef);
 
         /* Set address */
-        displist[cnt++] = LE32(0xc0000000 | startAddress);
-        displist[cnt++] = LE32(0xdeadbeef);
-        displist[cnt++] = LE32(fullWidth * bpp);
+        wr32le(&displist[cnt++], 0xc0000000 | startAddress);
+        wr32le(&displist[cnt++], 0xdeadbeef);
+        wr32le(&displist[cnt++], fullWidth * bpp);
 
         /* Done */
-        displist[cnt++] = LE32(0x80000000);
+        wr32le(&displist[cnt++], 0x80000000);
     }
     else
     {
-        cnt -= 17;
+        cnt -= 24;
         
-        if (config & UNICAMF_SMOOTHING) cnt -= 11;
+        if (config & UNICAMF_SMOOTHING) cnt -= 16;
 
         VC4Base->vc4_UnicamDL = cnt;
 
         /* Set control reg */
-        displist[cnt++] = LE32(
+        ULONG control = 
             CONTROL_VALID
             | CONTROL_WORDS(16)
-            | 0x01800 
-        );
+            | 0x01800;
 
         if (bpp == 2)
-            displist[cnt - 1] |= LE32(mode_table[RGBFB_R5G6B5PC]);
+            control |= mode_table[RGBFB_R5G6B5PC];
         else if (bpp == 3)
-            displist[cnt - 1] |= LE32(mode_table[RGBFB_R8G8B8]);
+            control |= mode_table[RGBFB_R8G8B8];
+
+        wr32le(&displist[cnt++], control);
 
         /* Center plane on the screen */
-        displist[cnt++] = LE32(POS0_X(offset_x) | POS0_Y(offset_y) | POS0_ALPHA(0xff));
-        displist[cnt++] = LE32(POS1_H(calc_height) | POS1_W(calc_width));
-        displist[cnt++] = LE32(POS2_H(crop_h) | POS2_W(crop_w) | (SCALER_POS2_ALPHA_MODE_FIXED << SCALER_POS2_ALPHA_MODE_SHIFT));
-        displist[cnt++] = LE32(0xdeadbeef); // Scratch written by HVS
+        wr32le(&displist[cnt++], POS0_X(offset_x) | POS0_Y(offset_y) | POS0_ALPHA(0xff));
+        wr32le(&displist[cnt++], POS1_H(calc_height) | POS1_W(calc_width));
+        wr32le(&displist[cnt++], POS2_H(crop_h) | POS2_W(crop_w) | (SCALER_POS2_ALPHA_MODE_FIXED << SCALER_POS2_ALPHA_MODE_SHIFT));
+        wr32le(&displist[cnt++], 0xdeadbeef); // Scratch written by HVS
 
         /* Set address and pitch */
-        displist[cnt++] = LE32(0xc0000000 | startAddress);
-        displist[cnt++] = LE32(0xdeadbeef);
-        displist[cnt++] = LE32(fullWidth * bpp);
+        wr32le(&displist[cnt++], 0xc0000000 | startAddress);
+        wr32le(&displist[cnt++], 0xdeadbeef);
+        wr32le(&displist[cnt++], fullWidth * bpp);
 
         /* LMB address */
-        displist[cnt++] = LE32(0);
+        wr32le(&displist[cnt++], 0);
 
         /* Set PPF Scaler */
-        displist[cnt++] = LE32((scale_x << 8) | VC4Base->vc4_Scaler | VC4Base->vc4_Phase);
-        displist[cnt++] = LE32((scale_y << 8) | VC4Base->vc4_Scaler | VC4Base->vc4_Phase);
-        displist[cnt++] = LE32(0); // Scratch written by HVS
+        wr32le(&displist[cnt++], (scale_x << 8) | VC4Base->vc4_Scaler | VC4Base->vc4_Phase);
+        wr32le(&displist[cnt++], (scale_y << 8) | VC4Base->vc4_Scaler | VC4Base->vc4_Phase);
+        wr32le(&displist[cnt++], 0); // Scratch written by HVS
 
         if (config & UNICAMF_SMOOTHING)
         {
-            displist[cnt++] = LE32(0xfc0);
-            displist[cnt++] = LE32(0xfc0);
-            displist[cnt++] = LE32(0xfc0);
-            displist[cnt++] = LE32(0xfc0);
+            wr32le(&displist[cnt++], 0xfc0);
+            wr32le(&displist[cnt++], 0xfc0);
+            wr32le(&displist[cnt++], 0xfc0);
+            wr32le(&displist[cnt++], 0xfc0);
         }
         else
         {
-            displist[cnt++] = LE32(unity_kernel);
-            displist[cnt++] = LE32(unity_kernel);
-            displist[cnt++] = LE32(unity_kernel);
-            displist[cnt++] = LE32(unity_kernel);
+            wr32le(&displist[cnt++], unity_kernel);
+            wr32le(&displist[cnt++], unity_kernel);
+            wr32le(&displist[cnt++], unity_kernel);
+            wr32le(&displist[cnt++], unity_kernel);
         }
 
         /* Done */
-        displist[cnt++] = LE32(0x80000000);
+        wr32le(&displist[cnt++], 0x80000000);
 
         /* Put scaling kernel here... */
         if (config & UNICAMF_SMOOTHING)
