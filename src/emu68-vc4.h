@@ -81,13 +81,13 @@ struct VC4Base {
     WORD                    vc4_OffsetX;
     WORD                    vc4_OffsetY;
 
-    volatile ULONG *        vc4_PlaneCoord;
-    volatile ULONG *        vc4_PlaneScalerX;
-    volatile ULONG *        vc4_PlaneScalerY;
-    volatile ULONG *        vc4_MouseCoord;
-    volatile ULONG *        vc4_MousePalette;
-    volatile ULONG *        vc4_PIPCoord;
-    volatile ULONG *        vc4_Kernel;
+    volatile uint32_t *     vc4_PlaneCoord;
+    volatile uint32_t *     vc4_PlaneScalerX;
+    volatile uint32_t *     vc4_PlaneScalerY;
+    volatile uint32_t *     vc4_MouseCoord;
+    volatile uint32_t *     vc4_MousePalette;
+    volatile uint32_t *     vc4_PIPCoord;
+    volatile uint32_t *     vc4_Kernel;
 
     ULONG                   vc4_SpriteColors[3];
 
@@ -115,6 +115,11 @@ void bug(const char * restrict format, ...);
 static inline uint64_t LE64(uint64_t x) { return __builtin_bswap64(x); }
 static inline uint32_t LE32(uint32_t x) { return __builtin_bswap32(x); }
 static inline uint16_t LE16(uint16_t x) { return __builtin_bswap16(x); }
+
+static inline void wr32le(volatile uint32_t *addr, uint32_t value) {
+    *addr = LE32(value);
+    asm volatile("nop");
+}
 
 enum hvs_pixel_format {
     /* 8bpp */
