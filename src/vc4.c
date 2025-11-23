@@ -805,7 +805,7 @@ UWORD SetDisplay(REGARG(struct BoardInfo *b, "a0"), REGARG(UWORD enabled, "d0"))
 {
     struct VC4Base *VC4Base = (struct VC4Base *)b->CardBase;
     struct ExecBase *SysBase = VC4Base->vc4_SysBase;
-    
+#if 0
     if (0)
     {
         bug("[VC4] SetDisplay %ld\n", enabled);
@@ -815,7 +815,7 @@ UWORD SetDisplay(REGARG(struct BoardInfo *b, "a0"), REGARG(UWORD enabled, "d0"))
     } else {
         blank_screen(1, VC4Base);
     }
-
+#endif
     return 1;
 }
 
