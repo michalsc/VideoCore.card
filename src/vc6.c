@@ -191,6 +191,18 @@ UWORD VC6_SetSwitch(REGARG(struct BoardInfo *b, "a0"), REGARG(UWORD enabled, "d0
                 break;
            case CSI:
                 if (!en) {
+                    /* Before switching to Unicam display list, clear the buffer */
+                    ULONG *base = VC4Base->vc4_Unicambuffer;
+                    ULONG cnt = 720 * 576 * 2 / 16;
+
+                    while (cnt--)
+                    {
+                        *base++ = 0;
+                        *base++ = 0;
+                        *base++ = 0;
+                        *base++ = 0;
+                    }
+
                     wr32le((volatile uint32_t *)0xf2400024, VC4Base->vc4_UnicamDL);
                 }
                 else {

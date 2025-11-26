@@ -51,6 +51,7 @@ struct VC4Base {
     APTR                    vc4_MemBase;
     uint32_t                vc4_MemSize;
     APTR                    vc4_Unicambuffer;
+    ULONG                   vc4_UnicambufferSize;
     ULONG                   vc4_UnicamDL;
     APTR                    vc4_Framebuffer;
     uint32_t                vc4_Pitch;
