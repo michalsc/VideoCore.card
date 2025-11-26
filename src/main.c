@@ -680,7 +680,13 @@ static int InitCard(REGARG(struct BoardInfo* bi, "a0"), REGARG(const char **Tool
 
         bug("[VC] Checking ToolType `%s`\n", tt);
 
-        if (_strcmp(tt, "VC4_PHASE") == '=')
+        if (_strcmp(tt, "VC4_LEGACY_ID") == 0)
+        {
+            bi->BoardType = BT_uaegfx;
+            bi->PaletteChipType = PCT_S3ViRGE;
+            bi->GraphicsControllerType = GCT_S3ViRGE;
+        }
+        else if (_strcmp(tt, "VC4_PHASE") == '=')
         {
             const char *c = &tt[10];
             ULONG num = 0;
