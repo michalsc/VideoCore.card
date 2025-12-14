@@ -910,6 +910,13 @@ static int InitCard(REGARG(struct BoardInfo* bi, "a0"), REGARG(const char **Tool
 
     bug("[VC] InitCard ready\n");
 
+    /* If Unicam was activated on boot, make sure the pass-through is active at this moment */
+    if ((UnicamGetConfig() & UNICAMF_BOOT) != 0) 
+    {
+        /* Both vc4 and vc6 switch the same way */
+        wr32le((volatile uint32_t *)0xf2400024, VC4Base->vc4_UnicamDL);
+    }
+
     CloseLibrary(MathIeeeSingBasBase);
 
     return 1;
