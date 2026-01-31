@@ -108,6 +108,7 @@ struct VC4Base {
     enum SwitchMode         vc4_SwitchMode;
     UBYTE                   vc4_SwitchInverted;
     UBYTE                   vc4_IntegerScaler;
+    UBYTE                   vc4_UnicamVisible;
 };
 
 void bug(const char * restrict format, ...);
