@@ -75,6 +75,7 @@ void VC6_SetSpritePosition (__REGA0(struct BoardInfo *b), __REGD0(WORD x), __REG
 void VC6_SetSpriteImage (__REGA0(struct BoardInfo *b), __REGD7(RGBFTYPE format));
 void VC6_SetSpriteColor (__REGA0(struct BoardInfo *b), __REGD0(UBYTE idx), __REGD1(UBYTE R), __REGD2(UBYTE G), __REGD3(UBYTE B), __REGD7(RGBFTYPE format));
 ULONG VC6_GetVBeamPos(struct BoardInfo *b asm("a0"));
+int VC6_AllocSlot(UWORD size, struct VC4Base *VC4Base);
 
 extern int unity_kernel;
 extern int kernel_start;

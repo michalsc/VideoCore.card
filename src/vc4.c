@@ -388,10 +388,11 @@ UWORD SetSwitch(REGARG(struct BoardInfo *b, "a0"), REGARG(UWORD enabled, "d0"))
                         *base++ = 0;
                         *base++ = 0;
                     }
-
+                    VC4Base->vc4_UnicamVisible = TRUE;
                     wr32le((volatile uint32_t *)0xf2400024, VC4Base->vc4_UnicamDL);
                 }
                 else {
+                    VC4Base->vc4_UnicamVisible = FALSE;
                     wr32le((volatile uint32_t *)0xf2400024, VC4Base->vc4_ActivePlane);
                 }
                 break;
@@ -407,7 +408,7 @@ int AllocSlot(UWORD size, struct VC4Base *VC4Base)
     int ret = VC4Base->vc4_FreePlane;
     int next_free = VC4Base->vc4_FreePlane + size;
 
-    if (next_free >= 0x300 || next_free >= VC4Base->vc4_UnicamDL)
+    if (next_free >= 0x280)
     {
         ret = 0;
         next_free = ret + size;
