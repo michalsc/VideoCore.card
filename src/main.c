@@ -115,6 +115,8 @@ static int FindCard(REGARG(struct BoardInfo* bi, "a0"), REGARG(struct VC4Base *V
             
     }
 
+    VC4Base->vc4_UnicamVisible = FALSE;
+
     /* Open device tree resource */
     DeviceTreeBase = (struct Library *)OpenResource((STRPTR)"devicetree.resource");
     if (DeviceTreeBase == 0) {
@@ -440,6 +442,34 @@ static void vc4_Task()
                                 val = LE32(VC4Base->vc4_MouseCoord[10]);
                                 val = (val & 0xffffff00) | (vmsg->SetPhase.val & 0xff);
                                 wr32le(&VC4Base->vc4_MouseCoord[10], val);
+                            }
+                            break;
+                        case VCMD_UPDATE_UNICAM_DL:
+                            {
+                                /* Check if unicam.resource is there and the version is right */
+                                APTR UnicamBase = VC4Base->vc4_UnicamBase;
+                                struct Library *ub = UnicamBase;
+                                if (ub != NULL && (ub->lib_Version > 1 || (ub->lib_Version == 1 && ub->lib_Revision >= 2))) {
+                                    ULONG sz = (7 + UnicamConstructDL(NULL, 0)) & ~7;
+                                    ULONG idx = 0;
+                                    
+                                    /* Alloc slot for unicam displaylist and initialize it by unicam itself */
+                                    if (VC4Base->vc4_VideoCore6) {
+                                        idx = VC6_AllocSlot(sz, VC4Base);
+                                        UnicamConstructDL((APTR)0xf2404000, idx);
+                                    }
+                                    else {
+                                        idx = AllocSlot(sz, VC4Base);
+                                        UnicamConstructDL((APTR)0xf2402000, idx);
+                                    }
+
+                                    /* Set the new pointer to unicam display list */
+                                    VC4Base->vc4_UnicamDL = idx;
+                                    
+                                    if (VC4Base->vc4_UnicamVisible) {
+                                        wr32le((volatile uint32_t *)0xf2400024, VC4Base->vc4_UnicamDL);
+                                    }
+                                }
                             }
                             break;
                     }
@@ -889,13 +919,35 @@ static int InitCard(REGARG(struct BoardInfo* bi, "a0"), REGARG(const char **Tool
     else
         compute_nearest_neighbour_kernel(((uint32_t *)0xf2402000), unity_kernel);
 
-    if (VC4Base->vc4_VideoCore6)
-    {
-        VC6_ConstructUnicamDL(VC4Base);
+    /* If unicam.resource is new enough, let it construct unicam display list */
+    struct Library *ub = (struct Library *)UnicamBase;
+    if (ub->lib_Version > 1 || (ub->lib_Version == 1 && ub->lib_Revision >= 2)) {
+        ULONG sz = (7 + UnicamConstructDL(NULL, 0)) & ~7;
+        ULONG idx = 0;
+        
+        bug("[VC] Constructing Unicam DL using unicam.resource\n");
+
+        if (VC4Base->vc4_VideoCore6) {
+            idx = VC6_AllocSlot(sz, VC4Base);
+            UnicamConstructDL((APTR)0xf2404000, idx);
+        }
+        else {
+            idx = AllocSlot(sz, VC4Base);
+            UnicamConstructDL((APTR)0xf2402000, idx);
+        }
+
+        VC4Base->vc4_UnicamDL = idx;
     }
     else
     {
-        VC4_ConstructUnicamDL(VC4Base);
+        if (VC4Base->vc4_VideoCore6)
+        {
+            VC6_ConstructUnicamDL(VC4Base);
+        }
+        else
+        {
+            VC4_ConstructUnicamDL(VC4Base);
+        }
     }
 
     VC4Base->vc4_Task = NewCreateTask(
@@ -913,6 +965,7 @@ static int InitCard(REGARG(struct BoardInfo* bi, "a0"), REGARG(const char **Tool
     /* If Unicam was activated on boot, make sure the pass-through is active at this moment */
     if ((UnicamGetConfig() & UNICAMF_BOOT) != 0) 
     {
+        VC4Base->vc4_UnicamVisible = TRUE;
         /* Both vc4 and vc6 switch the same way */
         wr32le((volatile uint32_t *)0xf2400024, VC4Base->vc4_UnicamDL);
     }
