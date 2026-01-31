@@ -48,6 +48,7 @@ struct VC4Base {
     APTR                    vc4_HVS;
     APTR                    vc4_RequestBase;
     APTR                    vc4_Request;
+    APTR                    vc4_BuddyAllocator;
     APTR                    vc4_MemBase;
     uint32_t                vc4_MemSize;
     APTR                    vc4_Unicambuffer;

@@ -20,10 +20,11 @@ add_executable(VideoCore.card
     src/debug.c
     src/end.c
     src/unicam.c
+    src/buddyalloc.c
 )
 
 target_include_directories(VideoCore.card PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
-target_compile_options(VideoCore.card PRIVATE -Os -m68030 -fomit-frame-pointer)
+target_compile_options(VideoCore.card PRIVATE -Os -m68040 -fomit-frame-pointer)
 target_compile_definitions(VideoCore.card PRIVATE VERSION_STRING="${VERSTRING}")
 target_link_options(VideoCore.card PRIVATE -ffreestanding -nostdlib -nostartfiles -Wl,-e,__start)
 target_link_libraries(VideoCore.card devicetree amiga unicam)
