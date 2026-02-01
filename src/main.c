@@ -31,6 +31,7 @@
 #include "vc4.h"
 #include "vc6.h"
 #include "unicam.h"
+#include "buddyalloc.h"
 
 int __attribute__((no_reorder)) _start()
 {
@@ -336,10 +337,14 @@ static void vc4_Task()
             {
                 if (msg->mn_Length == sizeof(struct VC4Msg)) {
                     struct VC4Msg *vmsg = (struct VC4Msg *)msg;
+                    ULONG new_scaling_kernel;
+                    ULONG kernel_start;
 
                     switch (vmsg->cmd) {
                         case VCMD_SET_KERNEL:
-                            kernel_start ^= 0x10;
+                            new_scaling_kernel = BuddyAlloc(VC4Base, 11);
+                            kernel_start = BUDDY_OFFSET(new_scaling_kernel);
+
                             if (vmsg->SetKernel.kernel) {
                                 if (VC4Base->vc4_VideoCore6)
                                     compute_scaling_kernel((uint32_t *)0xf2404000, kernel_start, vmsg->SetKernel.b, vmsg->SetKernel.c);
@@ -367,6 +372,9 @@ static void vc4_Task()
                                 wr32le(&VC4Base->vc4_MouseCoord[14], kernel_start);
                                 wr32le(&VC4Base->vc4_MouseCoord[15], kernel_start);
                             }
+                            BuddyFree(VC4Base, VC4Base->vc4_ScalingKernel);
+                            VC4Base->vc4_ScalingKernel = new_scaling_kernel;
+
                             break;
                         
                         case VCMD_GET_KERNEL:
@@ -444,6 +452,7 @@ static void vc4_Task()
                                 wr32le(&VC4Base->vc4_MouseCoord[10], val);
                             }
                             break;
+                        
                         case VCMD_UPDATE_UNICAM_DL:
                             {
                                 /* Check if unicam.resource is there and the version is right */
@@ -451,24 +460,23 @@ static void vc4_Task()
                                 struct Library *ub = UnicamBase;
                                 if (ub != NULL && (ub->lib_Version > 1 || (ub->lib_Version == 1 && ub->lib_Revision >= 2))) {
                                     ULONG sz = (7 + UnicamConstructDL(NULL, 0)) & ~7;
-                                    ULONG idx = 0;
+                                    ULONG idx = BuddyAlloc(VC4Base, sz);
                                     
                                     /* Alloc slot for unicam displaylist and initialize it by unicam itself */
                                     if (VC4Base->vc4_VideoCore6) {
-                                        idx = VC6_AllocSlot(sz, VC4Base);
-                                        UnicamConstructDL((APTR)0xf2404000, idx);
+                                        UnicamConstructDL((APTR)0xf2404000, BUDDY_OFFSET(idx));
                                     }
                                     else {
-                                        idx = AllocSlot(sz, VC4Base);
-                                        UnicamConstructDL((APTR)0xf2402000, idx);
+                                        UnicamConstructDL((APTR)0xf2402000, BUDDY_OFFSET(idx));
+                                    }
+
+                                    if (VC4Base->vc4_UnicamVisible) {
+                                        wr32le((volatile uint32_t *)0xf2400024, BUDDY_OFFSET(idx));
                                     }
 
                                     /* Set the new pointer to unicam display list */
+                                    BuddyFree(VC4Base, VC4Base->vc4_UnicamDL);
                                     VC4Base->vc4_UnicamDL = idx;
-                                    
-                                    if (VC4Base->vc4_UnicamVisible) {
-                                        wr32le((volatile uint32_t *)0xf2400024, VC4Base->vc4_UnicamDL);
-                                    }
                                 }
                             }
                             break;
@@ -487,6 +495,8 @@ static int InitCard(REGARG(struct BoardInfo* bi, "a0"), REGARG(const char **Tool
 {
     struct ExecBase *SysBase = VC4Base->vc4_SysBase;
     struct Library *MathIeeeSingBasBase = OpenLibrary("mathieeesingbas.library", 0);
+
+    BuddyInit(VC4Base);
 
     if (MathIeeeSingBasBase == NULL)
         return 0;
@@ -903,6 +913,9 @@ static int InitCard(REGARG(struct BoardInfo* bi, "a0"), REGARG(const char **Tool
         }
     }
 
+    VC4Base->vc4_ScalingKernel = BuddyAlloc(VC4Base, 11);
+    ULONG kernel_start = BUDDY_OFFSET(VC4Base->vc4_ScalingKernel);
+
     if (VC4Base->vc4_UseKernel)
         if (VC4Base->vc4_VideoCore6)
             compute_scaling_kernel((uint32_t *)0xf2404000, kernel_start, VC4Base->vc4_Kernel_B, VC4Base->vc4_Kernel_C);
@@ -913,6 +926,9 @@ static int InitCard(REGARG(struct BoardInfo* bi, "a0"), REGARG(const char **Tool
             compute_nearest_neighbour_kernel((uint32_t *)0xf2404000, kernel_start);
         else
             compute_nearest_neighbour_kernel((uint32_t *)0xf2402000, kernel_start);
+
+    VC4Base->vc4_UnityKernel = BuddyAlloc(VC4Base, 11);
+    ULONG unity_kernel = BUDDY_OFFSET(VC4Base->vc4_UnityKernel);
 
     if (VC4Base->vc4_VideoCore6)
         compute_nearest_neighbour_kernel(((uint32_t *)0xf2404000), unity_kernel);
@@ -927,16 +943,17 @@ static int InitCard(REGARG(struct BoardInfo* bi, "a0"), REGARG(const char **Tool
         
         bug("[VC] Constructing Unicam DL using unicam.resource\n");
 
+        VC4Base->vc4_UnicamDL = BuddyAlloc(VC4Base, sz);
+        idx = BUDDY_OFFSET(VC4Base->vc4_UnicamDL);
+
         if (VC4Base->vc4_VideoCore6) {
-            idx = VC6_AllocSlot(sz, VC4Base);
             UnicamConstructDL((APTR)0xf2404000, idx);
         }
         else {
-            idx = AllocSlot(sz, VC4Base);
             UnicamConstructDL((APTR)0xf2402000, idx);
         }
 
-        VC4Base->vc4_UnicamDL = idx;
+        
     }
     else
     {
@@ -1071,100 +1088,3 @@ const uint32_t InitTable[4] = {
     0, 
     (uint32_t)vc4_Init
 };
-
-
-
-
-#if 0
-
-unsigned char a[] = {
-  0x10, 0xf0, 0x00, 0xc0, 0x80, 0x03, 0x10, 0xf8, 0x40, 0xc0, 0x40, 0x00,
-  0xc0, 0xf3, 0x00, 0x00, 0x10, 0xf8, 0x80, 0xc0, 0x00, 0x00, 0xc0, 0xf3,
-  0x01, 0x00, 0x10, 0xf8, 0xc0, 0xc0, 0x40, 0x00, 0xc0, 0xf3, 0x01, 0x00,
-  0x90, 0xf0, 0x30, 0x00, 0x81, 0x03, 0x90, 0xf8, 0x30, 0x00, 0x40, 0x10,
-  0xc0, 0xf3, 0x04, 0x00, 0x90, 0xf8, 0x30, 0x00, 0x00, 0x20, 0xc0, 0xf3,
-  0x05, 0x00, 0x90, 0xf8, 0x30, 0x00, 0x40, 0x30, 0xc0, 0xf3, 0x05, 0x00,
-  0x40, 0xe8, 0x00, 0x01, 0x00, 0x00, 0x41, 0xe8, 0x00, 0x01, 0x00, 0x00,
-  0x12, 0x66, 0x02, 0x6a, 0xd4, 0x18, 0x5a, 0x00
-};
-
-void test()
-{
-    int c = 1;
-    FBReq[c++] = 0;
-    FBReq[c++] = LE32(0x3000c);
-    FBReq[c++] = LE32(12);
-    FBReq[c++] = 0;
-    FBReq[c++] = LE32(sizeof(a));  // 32 bytes
-    FBReq[c++] = LE32(4);   // 4 byte align
-    FBReq[c++] = LE32((3 << 2) | (1 << 6));   // COHERENT | DIRECT | HINT_PERMALOCK
-    FBReq[c++] = 0;
-    FBReq[0] = LE32(4*c);
-
-    arm_flush_cache((intptr_t)FBReq, 4*c);
-    mbox_send(8, mmu_virt2phys((intptr_t)FBReq));
-    mbox_recv(8);
-
-    int handle = LE32(FBReq[5]);
-    kprintf("Alloc returned %d\n", handle);
-
-    c = 1;
-    FBReq[c++] = 0;
-    FBReq[c++] = LE32(0x0003000d);
-    FBReq[c++] = LE32(4);
-    FBReq[c++] = 0;
-    FBReq[c++] = LE32(handle);  // 32 bytes
-    FBReq[c++] = 0;
-    FBReq[0] = LE32(4*c);
-    
-    arm_flush_cache((intptr_t)FBReq, 4*c);
-    mbox_send(8, mmu_virt2phys((intptr_t)FBReq));
-    mbox_recv(8);
-
-    uint64_t phys = LE32(FBReq[5]);
-    uint64_t cpu = phys & ~0xc0000000;
-    kprintf("Locl memory returned %08x, CPU addr %08x\n", phys, cpu);
-
-    phys &= ~0xc0000000;
-    for (unsigned i=0; i < sizeof(a); i++)
-        ((uint8_t *)cpu)[i] = a[i];
-    arm_flush_cache(cpu, sizeof(a));
-
-    kprintf("test code uploaded\n");
-
-    kprintf("running code with r0=%08x, r1=%08x, r2=%08x\n", 0xc0000000, fb_phys_base, 30000);
-
-    uint32_t t0 = LE32(*(volatile uint32_t*)0xf2003004);
-
-for (int i=0; i < 20000; i++) {
-    if (i == 1)
-        phys++;
-    c = 1;
-    FBReq[c++] = 0;
-    FBReq[c++] = LE32(0x00030010);
-    FBReq[c++] = LE32(28);
-    FBReq[c++] = 0;
-    FBReq[c++] = LE32(phys);  // code address
-    FBReq[c++] = LE32(0xc0000000 + (0x3fffffff & ((uint64_t)i * 15000*256))); // r0 source address
-    FBReq[c++] = LE32(fb_phys_base); // r1 dest address
-    FBReq[c++] = LE32(7500); // r2 Number of 256-byte packets
-    FBReq[c++] = 0; // r3
-    FBReq[c++] = 0; // r4
-    FBReq[c++] = 0; // r5
-
-    FBReq[c++] = 0;
-    FBReq[0] = LE32(4*c);
-    
-    arm_flush_cache((intptr_t)FBReq, 4*c);
-    mbox_send(8, mmu_virt2phys((intptr_t)FBReq));
-    mbox_recv(8);
-}
-
-    uint32_t t1 = LE32(*(volatile uint32_t*)0xf2003004);
-
-    kprintf("Returned from test code. Retval = %08x\n", LE32(FBReq[5]));
-    kprintf("Time wasted: %d milliseconds\n", (t1 - t0) / 1000);
-    
-}
-
-#endif

@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.14.0)
-project(VideoCore VERSION 1.3)
+project(VideoCore VERSION 1.4)
 
 include(cmake/verstring.cmake)
 get_verstring(VERSTRING)

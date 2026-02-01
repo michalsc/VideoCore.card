@@ -63,8 +63,8 @@ struct VC4Base {
 
     APTR                    vc4_VPU_CopyBlock;
 
-    int                     vc4_ActivePlane;
-    int                     vc4_FreePlane;
+    ULONG                   vc4_ActivePlane;
+    ULONG                   vc4_FreePlane;
 
     ULONG                   vc4_Scaler;
     UBYTE                   vc4_Phase;
@@ -109,6 +109,9 @@ struct VC4Base {
     UBYTE                   vc4_SwitchInverted;
     UBYTE                   vc4_IntegerScaler;
     UBYTE                   vc4_UnicamVisible;
+    ULONG                   vc4_ScalingKernel;
+    ULONG                   vc4_UnityKernel;
+    ULONG                   vc4_UnicamKernel;
 };
 
 void bug(const char * restrict format, ...);

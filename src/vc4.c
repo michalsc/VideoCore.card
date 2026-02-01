@@ -18,6 +18,7 @@
 #include "vc4.h"
 #include "boardinfo.h"
 #include "mbox.h"
+#include "buddyalloc.h"
 
 int mitchell_netravali(ULONG x, ULONG b, ULONG c, struct Library *MathIeeeSingBasBase)
 {
@@ -156,9 +157,6 @@ int mitchell_netravali(ULONG x, ULONG b, ULONG c, struct Library *MathIeeeSingBa
 
     return IEEESPFix(k);
 }
-
-int unity_kernel = 0xfd0;
-int kernel_start = 0xff0;
 
 int compute_scaling_kernel(volatile uint32_t *dlist_memory, ULONG offset, ULONG b, ULONG c)
 {
@@ -377,46 +375,18 @@ UWORD SetSwitch(REGARG(struct BoardInfo *b, "a0"), REGARG(UWORD enabled, "d0"))
                 break;
            case CSI:
                 if (!en) {
-                    /* Before switching to Unicam display list, clear the buffer */
-                    ULONG *base = VC4Base->vc4_Unicambuffer;
-                    ULONG cnt = 720 * 576 * 2 / 16;
-
-                    while (cnt--)
-                    {
-                        *base++ = 0;
-                        *base++ = 0;
-                        *base++ = 0;
-                        *base++ = 0;
-                    }
                     VC4Base->vc4_UnicamVisible = TRUE;
-                    wr32le((volatile uint32_t *)0xf2400024, VC4Base->vc4_UnicamDL);
+                    wr32le((volatile uint32_t *)0xf2400024, BUDDY_OFFSET(VC4Base->vc4_UnicamDL));
                 }
                 else {
                     VC4Base->vc4_UnicamVisible = FALSE;
-                    wr32le((volatile uint32_t *)0xf2400024, VC4Base->vc4_ActivePlane);
+                    wr32le((volatile uint32_t *)0xf2400024, BUDDY_OFFSET(VC4Base->vc4_ActivePlane));
                 }
                 break;
         }
     }
 
     return 1 - enabled;
-}
-
-
-int AllocSlot(UWORD size, struct VC4Base *VC4Base)
-{
-    int ret = VC4Base->vc4_FreePlane;
-    int next_free = VC4Base->vc4_FreePlane + size;
-
-    if (next_free >= 0x280)
-    {
-        ret = 0;
-        next_free = ret + size;
-    }
-
-    VC4Base->vc4_FreePlane = next_free;
-
-    return ret;
 }
 
 void SetPanning(REGARG(struct BoardInfo *b, "a0"), REGARG(UBYTE *addr, "a1"), 
@@ -440,6 +410,8 @@ void SetPanning(REGARG(struct BoardInfo *b, "a0"), REGARG(UBYTE *addr, "a1"),
     ULONG bytes_per_row = CalculateBytesPerRow(b, width, format);
     ULONG bytes_per_pix = bytes_per_row / width;
     UWORD pos = 0;
+    ULONG plane = -1;
+
     int offset_only = 0;
 
     if (0) {
@@ -526,13 +498,15 @@ void SetPanning(REGARG(struct BoardInfo *b, "a0"), REGARG(UBYTE *addr, "a1"),
    
     if (unity) {
         if (offset_only) {
-            pos = VC4Base->vc4_ActivePlane;
+            plane = VC4Base->vc4_ActivePlane;
+            pos = BUDDY_OFFSET(plane);
             wr32le(&displist[pos + 4], 0xc0000000 | (ULONG)addr + y_offset * bytes_per_row + x_offset * bytes_per_pix);
             if (VC4Base->vc4_SpriteVisible)
                 SetSpritePosition(b, VC4Base->vc4_MouseX, VC4Base->vc4_MouseY, format);
         }
         else {
-            pos = AllocSlot(8 + 18 + 4, VC4Base);
+            plane = BuddyAlloc(VC4Base, 8 + 18 + 4);
+            pos = BUDDY_OFFSET(plane);
             int cnt = pos + 1;
 
             VC4Base->vc4_PlaneCoord = &displist[cnt];
@@ -583,6 +557,8 @@ void SetPanning(REGARG(struct BoardInfo *b, "a0"), REGARG(UBYTE *addr, "a1"),
                 wr32le(&displist[cnt++], (scale << 8) | VC4Base->vc4_Scaler | VC4Base->vc4_Phase);
             wr32le(&displist[cnt++], 0); // Scratch written by HVS
 
+            ULONG unity_kernel = BUDDY_OFFSET(VC4Base->vc4_UnityKernel);
+
             // Write scaling kernel offset in dlist
             wr32le(&displist[cnt++], unity_kernel);
             wr32le(&displist[cnt++], unity_kernel);
@@ -608,14 +584,16 @@ void SetPanning(REGARG(struct BoardInfo *b, "a0"), REGARG(UBYTE *addr, "a1"),
         }
     } else {
         if (offset_only) {
-            pos = VC4Base->vc4_ActivePlane;
+            plane = VC4Base->vc4_ActivePlane;
+            pos = BUDDY_OFFSET(plane);
             wr32le(&displist[pos + 5], 0xc0000000 | (ULONG)addr + y_offset * bytes_per_row + x_offset * bytes_per_pix);
             if (VC4Base->vc4_SpriteVisible)
                 SetSpritePosition(b, VC4Base->vc4_MouseX, VC4Base->vc4_MouseY, format);
         }
         else 
         {
-            pos = AllocSlot(2*18 + 4, VC4Base);
+            plane = BuddyAlloc(VC4Base, 2*18 + 4);
+            pos = BUDDY_OFFSET(plane);
             int cnt = pos + 1;
 
             VC4Base->vc4_PlaneCoord = &displist[cnt];
@@ -648,6 +626,8 @@ void SetPanning(REGARG(struct BoardInfo *b, "a0"), REGARG(UBYTE *addr, "a1"),
             else
                 wr32le(&displist[cnt++], (scale << 8) | VC4Base->vc4_Scaler | VC4Base->vc4_Phase);
             wr32le(&displist[cnt++], 0); // Scratch written by HVS
+
+            ULONG kernel_start = BUDDY_OFFSET(VC4Base->vc4_ScalingKernel);
 
             // Write scaling kernel offset in dlist
             VC4Base->vc4_Kernel = &displist[cnt];
@@ -727,7 +707,7 @@ void SetPanning(REGARG(struct BoardInfo *b, "a0"), REGARG(UBYTE *addr, "a1"),
         }
     }
 
-    if (pos != VC4Base->vc4_ActivePlane)
+    if (plane != VC4Base->vc4_ActivePlane)
     {
         volatile ULONG *stat = (ULONG*)(0xf2400000 + SCALER_DISPSTAT1);
 
@@ -735,7 +715,8 @@ void SetPanning(REGARG(struct BoardInfo *b, "a0"), REGARG(UBYTE *addr, "a1"),
         do { asm volatile("nop"); } while((LE32(*stat) & 0xfff) != VC4Base->vc4_DispSize.height);
 
         wr32le((volatile uint32_t *)0xf2400024, pos);
-        VC4Base->vc4_ActivePlane = pos;
+        BuddyFree(VC4Base, VC4Base->vc4_ActivePlane);
+        VC4Base->vc4_ActivePlane = plane;
     }
 }
 
@@ -1214,15 +1195,22 @@ void VC4_ConstructUnicamDL(struct VC4Base *VC4Base)
         wr32le(&displist[cnt++], (scale_y << 8) | VC4Base->vc4_Scaler | VC4Base->vc4_Phase);
         wr32le(&displist[cnt++], 0); // Scratch written by HVS
 
+        ULONG unicam_scaling = -1;
+
         if (config & UNICAMF_SMOOTHING)
         {
-            wr32le(&displist[cnt++], 0xfc0);
-            wr32le(&displist[cnt++], 0xfc0);
-            wr32le(&displist[cnt++], 0xfc0);
-            wr32le(&displist[cnt++], 0xfc0);
+            VC4Base->vc4_UnicamKernel = BuddyAlloc(VC4Base, 11);
+            unicam_scaling = BUDDY_OFFSET(VC4Base->vc4_UnicamKernel);
+
+            wr32le(&displist[cnt++], unicam_scaling);
+            wr32le(&displist[cnt++], unicam_scaling);
+            wr32le(&displist[cnt++], unicam_scaling);
+            wr32le(&displist[cnt++], unicam_scaling);
         }
         else
         {
+            ULONG unity_kernel = BUDDY_OFFSET(VC4Base->vc4_UnityKernel);
+
             wr32le(&displist[cnt++], unity_kernel);
             wr32le(&displist[cnt++], unity_kernel);
             wr32le(&displist[cnt++], unity_kernel);
@@ -1250,7 +1238,7 @@ void VC4_ConstructUnicamDL(struct VC4Base *VC4Base)
 
             CloseLibrary(MathIeeeSingBasBase);
 
-            compute_scaling_kernel((volatile uint32_t *)displist, 0xfc0, float_kernel_b, float_kernel_c);
+            compute_scaling_kernel((volatile uint32_t *)displist, unicam_scaling, float_kernel_b, float_kernel_c);
         }
     }
 }

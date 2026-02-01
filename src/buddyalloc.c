@@ -132,12 +132,12 @@ void BuddyInit(struct VC4Base *base) {
     }
 }
 
-int BuddyAlloc(struct VC4Base *base, UWORD size) {
+ULONG BuddyAlloc(struct VC4Base *base, UWORD size) {
     BuddyAllocator *alloc = (BuddyAllocator *)base->vc4_BuddyAllocator;
     
     int order = order_for_size(size);
     if (order >= NUM_ORDERS) {
-        return -1;
+        return 0xffffffff;
     }
     
     int current_order = order;
@@ -160,16 +160,22 @@ int BuddyAlloc(struct VC4Base *base, UWORD size) {
             }
             
             UWORD offset = bit_index * block_size_for_order(order);
-            return offset;
+            return offset | ((ULONG)size << 16);
         }
         current_order++;
     }
     
-    return -1;
+    return 0xffffffff;
 }
 
-void BuddyFree(struct VC4Base *base, UWORD offset, UWORD size) {
+void BuddyFree(struct VC4Base *base, ULONG id) {
     BuddyAllocator *alloc = (BuddyAllocator *)base->vc4_BuddyAllocator;
+    UWORD offset = BUDDY_OFFSET(id);
+    UWORD size = BUDDY_SIZE(id);
+
+    // Return immediately, if result of failed allocation is given to this function
+    if (id == 0xffffffff)
+        return;
     
     int order = order_for_size(size);
     if (order >= NUM_ORDERS) {

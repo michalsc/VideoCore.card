@@ -17,6 +17,7 @@
 #include "vc6.h"
 #include "boardinfo.h"
 #include "mbox.h"
+#include "buddyalloc.h"
 
 UWORD VC6_CalculateBytesPerRow(REGARG(struct BoardInfo *b, "a0"), REGARG(UWORD width, "d0"), REGARG(RGBFTYPE format, "d7"))
 {
@@ -113,29 +114,13 @@ static const ULONG mode_table[] = {
     [RGBFB_CLUT] = VC6_CONTROL_FORMAT(HVS_PIXEL_FORMAT_PALETTE) | VC6_CONTROL_PIXEL_ORDER(HVS_PIXEL_ORDER_XBGR)
 };
 
-int VC6_AllocSlot(UWORD size, struct VC4Base *VC4Base)
-{
-    int ret = VC4Base->vc4_FreePlane;
-    int next_free = VC4Base->vc4_FreePlane + size;
-
-    if (next_free >= 0x280)
-    {
-        ret = 0;
-        next_free = ret + size;
-    }
-
-    VC4Base->vc4_FreePlane = next_free;
-
-    return ret;
-}
-
 UWORD VC6_SetSwitch(REGARG(struct BoardInfo *b, "a0"), REGARG(UWORD enabled, "d0"))
 {
     struct VC4Base *VC4Base = (struct VC4Base *)b->CardBase;
     struct ExecBase *SysBase = VC4Base->vc4_SysBase;
     volatile ULONG *displist = (ULONG *)0xf2404000;
 
-    if (1)
+    if (0)
     {
         bug("[VC4] SetSwitch %ld\n", enabled);
     }
@@ -153,7 +138,7 @@ UWORD VC6_SetSwitch(REGARG(struct BoardInfo *b, "a0"), REGARG(UWORD enabled, "d0
         }
     }
     
-/* If switch mode is selected */
+    /* If switch mode is selected */
     if (VC4Base->vc4_SwitchMode != None)
     {
         UWORD en = enabled;
@@ -191,23 +176,12 @@ UWORD VC6_SetSwitch(REGARG(struct BoardInfo *b, "a0"), REGARG(UWORD enabled, "d0
                 break;
            case CSI:
                 if (!en) {
-                    /* Before switching to Unicam display list, clear the buffer */
-                    ULONG *base = VC4Base->vc4_Unicambuffer;
-                    ULONG cnt = 720 * 576 * 2 / 16;
-
-                    while (cnt--)
-                    {
-                        *base++ = 0;
-                        *base++ = 0;
-                        *base++ = 0;
-                        *base++ = 0;
-                    }
                     VC4Base->vc4_UnicamVisible = TRUE;
-                    wr32le((volatile uint32_t *)0xf2400024, VC4Base->vc4_UnicamDL);
+                    wr32le((volatile uint32_t *)0xf2400024, BUDDY_OFFSET(VC4Base->vc4_UnicamDL));
                 }
                 else {
                     VC4Base->vc4_UnicamVisible = FALSE;
-                    wr32le((volatile uint32_t *)0xf2400024, VC4Base->vc4_ActivePlane);
+                    wr32le((volatile uint32_t *)0xf2400024, BUDDY_OFFSET(VC4Base->vc4_ActivePlane));
                 }
                 break;
         }
@@ -237,6 +211,7 @@ void VC6_SetPanning(REGARG(struct BoardInfo *b, "a0"), REGARG(UBYTE *addr, "a1")
     ULONG bytes_per_row = VC6_CalculateBytesPerRow(b, width, format);
     ULONG bytes_per_pix = bytes_per_row / width;
     UWORD pos = 0;
+    ULONG plane = -1;
     int offset_only = 0;
 
     if (0) {
@@ -324,13 +299,15 @@ void VC6_SetPanning(REGARG(struct BoardInfo *b, "a0"), REGARG(UBYTE *addr, "a1")
    
     if (unity) {
         if (offset_only) {
-            pos = VC4Base->vc4_ActivePlane;
+            plane = VC4Base->vc4_ActivePlane;
+            pos = BUDDY_OFFSET(plane);
             wr32le(&displist[pos + 5], 0xc0000000 | (ULONG)addr + y_offset * bytes_per_row + x_offset * bytes_per_pix);
             if (VC4Base->vc4_SpriteVisible)
                 VC6_SetSpritePosition(b, VC4Base->vc4_MouseX, VC4Base->vc4_MouseY, format);
         }
         else {
-            pos = VC6_AllocSlot(8 + 20 + 4 + 8, VC4Base);
+            plane = BuddyAlloc(VC4Base, 8 + 20 + 4 + 8);
+            pos = BUDDY_OFFSET(plane);
             int cnt = pos + 1;
 
             VC4Base->vc4_PlaneCoord = &displist[cnt];
@@ -385,6 +362,8 @@ void VC6_SetPanning(REGARG(struct BoardInfo *b, "a0"), REGARG(UBYTE *addr, "a1")
                 wr32le(&displist[cnt++], (scale << 8) | VC4Base->vc4_Scaler | VC4Base->vc4_Phase);
             wr32le(&displist[cnt++], 0); // Scratch written by HVS
 
+            ULONG unity_kernel = BUDDY_OFFSET(VC4Base->vc4_UnityKernel);
+
             // Write scaling kernel offset in dlist
             wr32le(&displist[cnt++], unity_kernel);
             wr32le(&displist[cnt++], unity_kernel);
@@ -399,30 +378,6 @@ void VC6_SetPanning(REGARG(struct BoardInfo *b, "a0"), REGARG(UBYTE *addr, "a1")
                 mode_table[RGBFB_CLUT]
             );
 
-/*
-//UNICAM
-            int unicam_pos = cnt;
-            cnt = unicam_pos + 1;
-
-            VC4Base->vc4_PlaneCoord = &displist[cnt];
-            displist[cnt++] = LE32(VC6_POS0_X(1920-720) | VC6_POS0_Y(1080-576));
-            displist[cnt++] = LE32((VC6_SCALER_POS2_ALPHA_MODE_FIXED << VC6_SCALER_POS2_ALPHA_MODE_SHIFT) | VC6_SCALER_POS2_ALPHA(0xfff));
-            displist[cnt++] = LE32(VC6_POS2_H(576) | VC6_POS2_W(720));
-            displist[cnt++] = LE32(0xdeadbeef);
-
-            displist[cnt++] = LE32(0xc0000000 | (ULONG)VC4Base->vc4_Unicambuffer);
-            displist[cnt++] = LE32(0xdeadbeef);
-            displist[cnt++] = LE32(720*2);
-
-            displist[unicam_pos] = LE32(
-                VC6_CONTROL_VALID
-                | VC6_CONTROL_WORDS(cnt - unicam_pos)
-                | VC6_CONTROL_UNITY
-                | VC6_CONTROL_ALPHA_EXPAND
-                | VC6_CONTROL_RGB_EXPAND
-                | mode_table[RGBFB_R5G6B5PC]);
-//UNICAM
-*/
             wr32le(&displist[cnt++], 0x80000000);
             wr32le(&displist[clut_off], 0xc0000000 | (cnt << 2));
 
@@ -445,14 +400,16 @@ void VC6_SetPanning(REGARG(struct BoardInfo *b, "a0"), REGARG(UBYTE *addr, "a1")
         }
     } else {
         if (offset_only) {
-            pos = VC4Base->vc4_ActivePlane;
+            plane = VC4Base->vc4_ActivePlane;
+            pos = BUDDY_OFFSET(plane);
             wr32le(&displist[pos + 6], 0xc0000000 | (ULONG)addr + y_offset * bytes_per_row + x_offset * bytes_per_pix);
             if (VC4Base->vc4_SpriteVisible)
                 VC6_SetSpritePosition(b, VC4Base->vc4_MouseX, VC4Base->vc4_MouseY, format);
         }
         else 
         {
-            pos = VC6_AllocSlot(2*20 + 4 + 8, VC4Base);
+            plane = BuddyAlloc(VC4Base, 2*20 + 4 + 8);
+            pos = BUDDY_OFFSET(plane);
             int cnt = pos + 1;
 
             VC4Base->vc4_PlaneCoord = &displist[cnt];
@@ -486,6 +443,8 @@ void VC6_SetPanning(REGARG(struct BoardInfo *b, "a0"), REGARG(UBYTE *addr, "a1")
             else
                 wr32le(&displist[cnt++], (scale << 8) | VC4Base->vc4_Scaler | VC4Base->vc4_Phase);
             wr32le(&displist[cnt++], 0); // Scratch written by HVS
+
+            ULONG kernel_start = BUDDY_OFFSET(VC4Base->vc4_ScalingKernel);
 
             // Write scaling kernel offset in dlist
             VC4Base->vc4_Kernel = &displist[cnt];
@@ -547,30 +506,6 @@ void VC6_SetPanning(REGARG(struct BoardInfo *b, "a0"), REGARG(UBYTE *addr, "a1")
                 mode_table[RGBFB_CLUT]
             );
 
-/*
-//UNICAM
-            int unicam_pos = cnt;
-            cnt = unicam_pos + 1;
-
-            VC4Base->vc4_PlaneCoord = &displist[cnt];
-            displist[cnt++] = LE32(VC6_POS0_X(1920-720) | VC6_POS0_Y(1080-576));
-            displist[cnt++] = LE32((VC6_SCALER_POS2_ALPHA_MODE_FIXED << VC6_SCALER_POS2_ALPHA_MODE_SHIFT) | VC6_SCALER_POS2_ALPHA(0xfff));
-            displist[cnt++] = LE32(VC6_POS2_H(576) | VC6_POS2_W(720));
-            displist[cnt++] = LE32(0xdeadbeef);
-
-            displist[cnt++] = LE32(0xc0000000 | (ULONG)VC4Base->vc4_Unicambuffer);
-            displist[cnt++] = LE32(0xdeadbeef);
-            displist[cnt++] = LE32(720*2);
-
-            displist[unicam_pos] = LE32(
-                VC6_CONTROL_VALID
-                | VC6_CONTROL_WORDS(cnt - unicam_pos)
-                | VC6_CONTROL_UNITY
-                | VC6_CONTROL_ALPHA_EXPAND
-                | VC6_CONTROL_RGB_EXPAND
-                | mode_table[RGBFB_R5G6B5PC]);
-//UNICAM
-*/
             wr32le(&displist[cnt++], 0x80000000);
             wr32le(&displist[clut_off], 0xc0000000 | (cnt << 2));
 
@@ -592,7 +527,7 @@ void VC6_SetPanning(REGARG(struct BoardInfo *b, "a0"), REGARG(UBYTE *addr, "a1")
         }
     }
 
-    if (pos != VC4Base->vc4_ActivePlane)
+    if (plane != VC4Base->vc4_ActivePlane)
     {
         volatile ULONG *stat = (ULONG*)(0xf2400000 + SCALER_DISPSTAT1);
 
@@ -600,7 +535,8 @@ void VC6_SetPanning(REGARG(struct BoardInfo *b, "a0"), REGARG(UBYTE *addr, "a1")
         do { asm volatile("nop"); } while((LE32(*stat) & 0xfff) != VC4Base->vc4_DispSize.height);
 
         wr32le((volatile uint32_t *)0xf2400024, pos);
-        VC4Base->vc4_ActivePlane = pos;
+        BuddyFree(VC4Base, VC4Base->vc4_ActivePlane);
+        VC4Base->vc4_ActivePlane = plane;
     }
 }
 
@@ -1083,15 +1019,22 @@ void VC6_ConstructUnicamDL(struct VC4Base *VC4Base)
         wr32le(&displist[cnt++], (scale_y << 8) | (scaler << 30) | phase);
         wr32le(&displist[cnt++], 0); // Scratch written by HVS
 
+        ULONG unicam_scaling = -1;
+
         if (config & UNICAMF_SMOOTHING)
         {
-            wr32le(&displist[cnt++], 0xfc0);
-            wr32le(&displist[cnt++], 0xfc0);
-            wr32le(&displist[cnt++], 0xfc0);
-            wr32le(&displist[cnt++], 0xfc0);
+            VC4Base->vc4_UnicamKernel = BuddyAlloc(VC4Base, 11);
+            unicam_scaling = BUDDY_OFFSET(VC4Base->vc4_UnicamKernel);
+
+            wr32le(&displist[cnt++], unicam_scaling);
+            wr32le(&displist[cnt++], unicam_scaling);
+            wr32le(&displist[cnt++], unicam_scaling);
+            wr32le(&displist[cnt++], unicam_scaling);
         }
         else
         {
+            ULONG unity_kernel = BUDDY_OFFSET(VC4Base->vc4_UnityKernel);
+
             wr32le(&displist[cnt++], unity_kernel);
             wr32le(&displist[cnt++], unity_kernel);
             wr32le(&displist[cnt++], unity_kernel);
@@ -1119,7 +1062,7 @@ void VC6_ConstructUnicamDL(struct VC4Base *VC4Base)
 
             CloseLibrary(MathIeeeSingBasBase);
 
-            compute_scaling_kernel((volatile uint32_t *)displist, 0xfc0, float_kernel_b, float_kernel_c);
+            compute_scaling_kernel((volatile uint32_t *)displist, unicam_scaling, float_kernel_b, float_kernel_c);
         }
     }
 }
