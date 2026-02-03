@@ -712,7 +712,7 @@ static int InitCard(REGARG(struct BoardInfo* bi, "a0"), REGARG(const char **Tool
     APTR UnicamBase = VC4Base->vc4_UnicamBase;
 
     /* If Unicam was activated on boot, pre-select CSI switch mode */
-    if ((UnicamGetConfig() & UNICAMF_BOOT) != 0) VC4Base->vc4_SwitchMode = CSI;
+    if (UnicamBase != NULL && (UnicamGetConfig() & UNICAMF_BOOT) != 0) VC4Base->vc4_SwitchMode = CSI;
 
     for (;ToolTypes[0] != NULL; ToolTypes++)
     {
@@ -937,33 +937,34 @@ static int InitCard(REGARG(struct BoardInfo* bi, "a0"), REGARG(const char **Tool
 
     /* If unicam.resource is new enough, let it construct unicam display list */
     struct Library *ub = (struct Library *)UnicamBase;
-    if (ub->lib_Version > 1 || (ub->lib_Version == 1 && ub->lib_Revision >= 2)) {
-        ULONG sz = (7 + UnicamConstructDL(NULL, 0)) & ~7;
-        ULONG idx = 0;
-        
-        bug("[VC] Constructing Unicam DL using unicam.resource\n");
-
-        VC4Base->vc4_UnicamDL = BuddyAlloc(VC4Base, sz);
-        idx = BUDDY_OFFSET(VC4Base->vc4_UnicamDL);
-
-        if (VC4Base->vc4_VideoCore6) {
-            UnicamConstructDL((APTR)0xf2404000, idx);
-        }
-        else {
-            UnicamConstructDL((APTR)0xf2402000, idx);
-        }
-
-        
-    }
-    else
+    if (ub != NULL)
     {
-        if (VC4Base->vc4_VideoCore6)
-        {
-            VC6_ConstructUnicamDL(VC4Base);
+        if (ub->lib_Version > 1 || (ub->lib_Version == 1 && ub->lib_Revision >= 2)) {
+            ULONG sz = (7 + UnicamConstructDL(NULL, 0)) & ~7;
+            ULONG idx = 0;
+            
+            bug("[VC] Constructing Unicam DL using unicam.resource\n");
+
+            VC4Base->vc4_UnicamDL = BuddyAlloc(VC4Base, sz);
+            idx = BUDDY_OFFSET(VC4Base->vc4_UnicamDL);
+
+            if (VC4Base->vc4_VideoCore6) {
+                UnicamConstructDL((APTR)0xf2404000, idx);
+            }
+            else {
+                UnicamConstructDL((APTR)0xf2402000, idx);
+            }
         }
         else
         {
-            VC4_ConstructUnicamDL(VC4Base);
+            if (VC4Base->vc4_VideoCore6)
+            {
+                VC6_ConstructUnicamDL(VC4Base);
+            }
+            else
+            {
+                VC4_ConstructUnicamDL(VC4Base);
+            }
         }
     }
 
@@ -980,11 +981,14 @@ static int InitCard(REGARG(struct BoardInfo* bi, "a0"), REGARG(const char **Tool
     bug("[VC] InitCard ready\n");
 
     /* If Unicam was activated on boot, make sure the pass-through is active at this moment */
-    if ((UnicamGetConfig() & UNICAMF_BOOT) != 0) 
+    if (UnicamBase != NULL)
     {
-        VC4Base->vc4_UnicamVisible = TRUE;
-        /* Both vc4 and vc6 switch the same way */
-        wr32le((volatile uint32_t *)0xf2400024, VC4Base->vc4_UnicamDL);
+        if ((UnicamGetConfig() & UNICAMF_BOOT) != 0) 
+        {
+            VC4Base->vc4_UnicamVisible = TRUE;
+            /* Both vc4 and vc6 switch the same way */
+            wr32le((volatile uint32_t *)0xf2400024, VC4Base->vc4_UnicamDL);
+        }
     }
 
     CloseLibrary(MathIeeeSingBasBase);
