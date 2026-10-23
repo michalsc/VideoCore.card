@@ -71,7 +71,7 @@ void int_itoa(char *buf, char base, uintptr_t value, char zero_pad, int precisio
     buf[length] = 0;
 }
 
-
+__attribute__((optimize("no-tree-loop-distribute-patterns")))
 int int_strlen(char *buf)
 {
     int len = 0;

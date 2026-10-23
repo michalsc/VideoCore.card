@@ -6,13 +6,24 @@
 #include <proto/utility.h>
 #include <clib/alib_protos.h>
 
+__attribute__((optimize("no-tree-loop-distribute-patterns")))
 int _strlen(CONST_STRPTR str)
 {
     int len = 0;
-
-    while (*str++) len++;
+    
+    if (str)
+        while (*str++) len++;
 
     return len;
+}
+
+void* memset(void* dest, int ch, unsigned count)
+{
+    char *cdest = dest;
+
+    while(count--) { *cdest++ = ch; }
+
+    return dest;
 }
 
 struct Task * NewCreateTaskTags(struct TagItem *tags)
