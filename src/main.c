@@ -32,6 +32,7 @@
 #include "vc6.h"
 #include "unicam.h"
 #include "buddyalloc.h"
+#include "vblank.h"
 
 int __attribute__((no_reorder)) _start()
 {
@@ -89,6 +90,21 @@ int _strcmp(const char *s1, const char *s2)
         if (*s1++ == '\0')
             return (0);
     return (*(const unsigned char *)s1 - *(const unsigned char *)(s2 - 1));
+}
+
+/* Same as _strcmp, but upper and lower case letters compare equal */
+static int _stricmp(const char *s1, const char *s2)
+{
+    unsigned char c1, c2;
+
+    do {
+        c1 = *(const unsigned char *)s1++;
+        c2 = *(const unsigned char *)s2++;
+        if (c1 >= 'a' && c1 <= 'z') c1 -= 'a' - 'A';
+        if (c2 >= 'a' && c2 <= 'z') c2 -= 'a' - 'A';
+    } while (c1 == c2 && c1 != '\0');
+
+    return c1 - c2;
 }
 
 static int FindCard(REGARG(struct BoardInfo* bi, "a0"), REGARG(struct VC4Base *VC4Base, "a6"))
@@ -708,6 +724,8 @@ static int InitCard(REGARG(struct BoardInfo* bi, "a0"), REGARG(const char **Tool
     VC4Base->vc4_Kernel_B = 0x3e800000; // 0.25
     VC4Base->vc4_Kernel_C = 0x3f400000; // 0.75
     VC4Base->vc4_IntegerScaler = 0;
+    VC4Base->vc4_UseDPMS = FALSE;
+    VC4Base->vc4_UseVBlank = 1;
 
     APTR UnicamBase = VC4Base->vc4_UnicamBase;
 
@@ -911,6 +929,52 @@ static int InitCard(REGARG(struct BoardInfo* bi, "a0"), REGARG(const char **Tool
                 VC4Base->vc4_IntegerScaler = 1;
             }
         }
+        else if (_strcmp(tt, "VC4_DPMS") == 0)
+        {
+            /* Expose DPMS support to Picasso96,
+             * using the mailbox display power tag */
+            VC4Base->vc4_UseDPMS = TRUE;
+        }
+        else if (_stricmp(tt, "INTERRUPT") == '=')
+        {
+            /* Monitor ToolType documented by Picasso96: Interrupt=No disables the vertical blank interrupt,
+               polling instead */
+            if (_stricmp(&tt[10], "NO") == 0)
+            {
+                VC4Base->vc4_UseVBlank = 0;
+            }
+        }
+    }
+
+    /* initialize the Picasso96 "DPMS" support */
+    if (VC4Base->vc4_UseDPMS)
+    {
+        /* obtain the RPi primary display id, or -1 if not supported by the RPi firmware.
+         *
+         * +---------+----------------+------------+
+         * | display | display_number | display_id |
+         * +---------+----------------+------------+
+         * | hdmi-0  |            0UL |         2L | primary hdmi
+         * | hdmi-1  |            1UL |         7L | secondary hdmi
+         * +---------+----------------+------------+
+         */
+
+        /* obtain the primary hdmi display num */
+        VC4Base->vc4_DisplayNum = 0UL;
+
+        /* obtain the primary hdmi display id */
+        VC4Base->vc4_DisplayID = get_display_id(
+            VC4Base->vc4_DisplayNum, VC4Base);
+
+        /* attach the Picasso96 method if the display id is valid */
+        if (VC4Base->vc4_DisplayID >= 0) {
+            bi->SetDPMSLevel = (void *)SetDPMSLevel;
+
+            /* the firmware keeps the display power state from one boot to the next:
+             * a display which DPMS has switched off before a reboot would stay off,
+             * so switch it on */
+            set_display_power(VC4Base->vc4_DisplayID, 1, VC4Base);
+        }
     }
 
     VC4Base->vc4_ScalingKernel = BuddyAlloc(VC4Base, 11);
@@ -968,6 +1032,10 @@ static int InitCard(REGARG(struct BoardInfo* bi, "a0"), REGARG(const char **Tool
         }
     }
 
+    /* A vertical blank interrupt, which lets rtg.library sleep in WaitBOVP() instead of spinning */
+    if (VC4Base->vc4_UseVBlank)
+        VBlank_Init(bi);
+
     VC4Base->vc4_Task = NewCreateTask(
         TASKTAG_PC,         (Tag)vc4_Task,
         TASKTAG_NAME,       (Tag)"VideoCore Task",
@@ -1014,6 +1082,9 @@ static ULONG ExpungeLib(REGARG(struct VC4Base *VC4Base, "a6"))
 
     if (VC4Base->vc4_LibNode.LibBase.lib_OpenCnt == 0)
     {
+        /* The interrupt must not outlive the memory it points to */
+        VBlank_Exit(VC4Base);
+
         /* Free memory of mailbox request buffer */
         FreeMem(VC4Base->vc4_RequestBase, 4*256);
 

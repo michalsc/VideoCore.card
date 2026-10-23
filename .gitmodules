@@ -4,3 +4,6 @@
 [submodule "unicam.resource"]
 	path = unicam.resource
 	url = https://github.com/michalsc/unicam.resource.git
+[submodule "gic400.library"]
+	path = gic400.library
+	url = https://github.com/michalsc/gic400.library.git

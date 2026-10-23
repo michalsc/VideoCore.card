@@ -18,6 +18,7 @@
 #include "boardinfo.h"
 #include "mbox.h"
 #include "buddyalloc.h"
+#include "vblank.h"
 
 UWORD VC6_CalculateBytesPerRow(REGARG(struct BoardInfo *b, "a0"), REGARG(UWORD width, "d0"), REGARG(RGBFTYPE format, "d7"))
 {
@@ -190,6 +191,26 @@ UWORD VC6_SetSwitch(REGARG(struct BoardInfo *b, "a0"), REGARG(UWORD enabled, "d0
     return 1 - enabled;
 }
 
+/*
+    Position word of the sprite plane: the position of the pointer given by rtg.library, minus the panning of the
+    screen, scaled to the display and moved by the offset of the picture on the display.
+*/
+static ULONG VC6_SpriteWord(struct VC4Base *VC4Base)
+{
+    LONG x = VC4Base->vc4_MouseX - VC4Base->vc4_LastPanning.lp_X;
+    LONG y = VC4Base->vc4_MouseY - VC4Base->vc4_LastPanning.lp_Y;
+
+    if (VC4Base->vc4_ScaleX)
+        x = 0x10000 * x / (LONG)VC4Base->vc4_ScaleX;
+    if (VC4Base->vc4_ScaleY)
+        y = 0x10000 * y / (LONG)VC4Base->vc4_ScaleY;
+
+    x += VC4Base->vc4_OffsetX;
+    y += VC4Base->vc4_OffsetY;
+
+    return VC6_POS0_X(x) | VC6_POS0_Y(y);
+}
+
 void VC6_SetPanning(REGARG(struct BoardInfo *b, "a0"), REGARG(UBYTE *addr, "a1"), 
                     REGARG(UWORD width, "d0"), REGARG(WORD x_offset, "d1"), 
                     REGARG(WORD y_offset, "d2"), REGARG(RGBFTYPE format, "d7"))
@@ -334,9 +355,9 @@ void VC6_SetPanning(REGARG(struct BoardInfo *b, "a0"), REGARG(UBYTE *addr, "a1")
             int mouse_pos = cnt;
             cnt = mouse_pos + 1;
 
+            VBlank_DropSprite(VC4Base);
             VC4Base->vc4_MouseCoord = &displist[cnt];
-            wr32le(&displist[cnt++], VC6_POS0_X(offset_x + VC4Base->vc4_MouseX - x_offset) |
-                                     VC6_POS0_Y(offset_y + VC4Base->vc4_MouseY - y_offset));
+            wr32le(&displist[cnt++], VC6_SpriteWord(VC4Base));
             wr32le(&displist[cnt++], (VC6_SCALER_POS2_ALPHA_MODE_PIPELINE << VC6_SCALER_POS2_ALPHA_MODE_SHIFT) | VC6_SCALER_POS2_ALPHA(0xfff));
             wr32le(&displist[cnt++], VC6_POS1_H(sprite_height) | VC6_POS1_W(sprite_width));
             wr32le(&displist[cnt++], VC6_POS2_H(MAXSPRITEHEIGHT) | VC6_POS2_W(MAXSPRITEWIDTH));
@@ -464,9 +485,9 @@ void VC6_SetPanning(REGARG(struct BoardInfo *b, "a0"), REGARG(UBYTE *addr, "a1")
             int mouse_pos = cnt;
             cnt = mouse_pos + 1;
 
+            VBlank_DropSprite(VC4Base);
             VC4Base->vc4_MouseCoord = &displist[cnt];
-            wr32le(&displist[cnt++], VC6_POS0_X(offset_x + 0x10000 * (VC4Base->vc4_MouseX - x_offset) / VC4Base->vc4_ScaleX) |
-                                     VC6_POS0_Y(offset_y + 0x10000 * (VC4Base->vc4_MouseY - y_offset) / VC4Base->vc4_ScaleY));
+            wr32le(&displist[cnt++], VC6_SpriteWord(VC4Base));
             wr32le(&displist[cnt++], (VC6_SCALER_POS2_ALPHA_MODE_PIPELINE << VC6_SCALER_POS2_ALPHA_MODE_SHIFT) | VC6_SCALER_POS2_ALPHA(0xfff));
             wr32le(&displist[cnt++], VC6_POS1_H(sprite_height) | VC6_POS1_W(sprite_width));
             wr32le(&displist[cnt++], VC6_POS2_H(MAXSPRITEHEIGHT) | VC6_POS2_W(MAXSPRITEWIDTH));
@@ -699,30 +720,10 @@ void VC6_SetSprite(REGARG(struct BoardInfo *b, "a0"), REGARG(BOOL enable, "d0"),
 
     VC4Base->vc4_SpriteVisible = enable;
 
-    if (enable) {
-        LONG _x;
-        LONG _y;
-
-        if (VC4Base->vc4_ScaleX)
-            _x = 0x10000 * VC4Base->vc4_MouseX / VC4Base->vc4_ScaleX;
-        else
-            _x = VC4Base->vc4_MouseX;
-
-        if (VC4Base->vc4_ScaleY)
-            _y = 0x10000 * VC4Base->vc4_MouseY / VC4Base->vc4_ScaleY;
-        else
-            _y = VC4Base->vc4_MouseY;
-
-        if (VC4Base->vc4_MouseCoord) {
-            wr32le(&VC4Base->vc4_MouseCoord[0], VC6_POS0_X(_x) | VC6_POS0_Y(_y));
-        }
-    }
+    if (enable)
+        VBlank_WriteSprite(VC4Base, VC6_SpriteWord(VC4Base));
     else
-    {
-        if (VC4Base->vc4_MouseCoord) {
-            wr32le(&VC4Base->vc4_MouseCoord[0], VC6_POS0_X(-1) | VC6_POS0_Y(-1));
-        }
-    }
+        VBlank_WriteSprite(VC4Base, VC6_POS0_X(-1) | VC6_POS0_Y(-1));
 }
 
 void VC6_SetSpritePosition(REGARG(struct BoardInfo *b, "a0"), REGARG(WORD x, "d0"), 
@@ -738,28 +739,7 @@ void VC6_SetSpritePosition(REGARG(struct BoardInfo *b, "a0"), REGARG(WORD x, "d0
     VC4Base->vc4_MouseX = x;
     VC4Base->vc4_MouseY = y;
 
-    x -= VC4Base->vc4_LastPanning.lp_X;
-    y -= VC4Base->vc4_LastPanning.lp_Y;
-
-    LONG _x;
-    LONG _y;
-
-    if (VC4Base->vc4_ScaleX)
-        _x = 0x10000 * x / VC4Base->vc4_ScaleX;
-    else
-        _x = x;
-
-    if (VC4Base->vc4_ScaleY)
-        _y = 0x10000 * y / VC4Base->vc4_ScaleY;
-    else
-        _y = y;
-
-    _x += VC4Base->vc4_OffsetX;
-    _y += VC4Base->vc4_OffsetY;
-
-    if (VC4Base->vc4_MouseCoord) {   
-        wr32le(&VC4Base->vc4_MouseCoord[0], VC6_POS0_X(_x) | VC6_POS0_Y(_y));
-    }
+    VBlank_WriteSprite(VC4Base, VC6_SpriteWord(VC4Base));
 }
 
 void VC6_SetSpriteImage(REGARG(struct BoardInfo *b, "a0"), REGARG(RGBFTYPE format, "d7"))
@@ -770,12 +750,20 @@ void VC6_SetSpriteImage(REGARG(struct BoardInfo *b, "a0"), REGARG(RGBFTYPE forma
     for (int i=0; i < MAXSPRITEWIDTH * MAXSPRITEHEIGHT; i++)
         VC4Base->vc4_SpriteShape[i] = 0;
 
-    if ((b->Flags & (BIF_HIRESSPRITE | BIF_BIGSPRITE)) == 0)
+    /* The same choice of format as rtg.library: the image is doubled only with BIGSPRITE alone, HIRESSPRITE
+       (with or without BIGSPRITE) has 32 pixels per line. MouseHeight is the height on the display. */
+    ULONG sprite_mode = b->Flags & (BIF_HIRESSPRITE | BIF_BIGSPRITE);
+    UWORD height = b->MouseHeight;
+
+    if (height > MAXSPRITEHEIGHT)
+        height = MAXSPRITEHEIGHT;
+
+    if (sprite_mode == 0)
     {
         UWORD *data = b->MouseImage;
         data += 2;
 
-        for (int y=0; y < b->MouseHeight; y++) {
+        for (int y=0; y < height; y++) {
             UWORD p0 = *data++;
             UWORD p1 = *data++;
             UWORD mask = 0x8000;
@@ -788,11 +776,12 @@ void VC6_SetSpriteImage(REGARG(struct BoardInfo *b, "a0"), REGARG(RGBFTYPE forma
             }
         }
     }
-    else if (b->Flags & BIF_BIGSPRITE) {
+    else if (sprite_mode == BIF_BIGSPRITE) {
         UWORD *data = b->MouseImage;
         data += 2;
 
-        for (int y=0; y < b->MouseHeight; y++) {
+        /* Every line of the image is drawn twice: the image has half of the height */
+        for (int y=0; y < height / 2; y++) {
             UWORD p0 = *data++;
             UWORD p1 = *data++;
             UWORD mask = 0x8000;
@@ -808,11 +797,11 @@ void VC6_SetSpriteImage(REGARG(struct BoardInfo *b, "a0"), REGARG(RGBFTYPE forma
             }
         }
     }
-    else if (b->Flags & BIF_HIRESSPRITE) {
+    else {
         ULONG *data = (ULONG*)b->MouseImage;
         data += 2;
 
-        for (int y=0; y < b->MouseHeight; y++) {
+        for (int y=0; y < height; y++) {
             ULONG p0 = *data++;
             ULONG p1 = *data++;
             ULONG mask = 0x80000000;

@@ -18,8 +18,8 @@
 #define VC6_CONTROL_ALPHA_EXPAND    (1<<12)
 #define VC6_CONTROL_RGB_EXPAND      (1<<11)
 
-#define VC6_POS0_X(n) (n & 0x2fff)
-#define VC6_POS0_Y(n) ((n & 0x2fff) << 16)
+#define VC6_POS0_X(n) ((n) & 0x3fff)
+#define VC6_POS0_Y(n) (((n) & 0xfff) << 16)
 
 #define VC6_POS1_W(n) (n & 0xffff)
 #define VC6_POS1_H(n) ((n & 0xffff) << 16)

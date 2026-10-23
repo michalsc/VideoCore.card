@@ -11,5 +11,7 @@ int blank_screen(int blank, struct VC4Base *VC4Base);
 uint32_t upload_code(const void * code, uint32_t code_size, struct VC4Base *VC4Base);
 void release_framebuffer(struct VC4Base *VC4Base);
 ULONG enable_unicam_domain();
+LONG get_display_id(ULONG display_num, struct VC4Base *VC4Base);
+BOOL set_display_power(LONG display_id, ULONG state, struct VC4Base *VC4Base);
 
 #endif /* _MBOX_H */

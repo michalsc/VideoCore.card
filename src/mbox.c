@@ -36,6 +36,8 @@
 
 #define VCTAG_GET_ARM_MEMORY     0x00010005
 #define VCTAG_GET_CLOCK_RATE     0x00030002
+#define VCTAG_GET_DISPLAY_ID     0x00040016
+#define VCTAG_SET_DISPLAY_POWER  0x00048019
 
 static uint32_t mbox_recv(uint32_t channel, struct VC4Base * VC4Base)
 {
@@ -255,6 +257,60 @@ int blank_screen(int blank, struct VC4Base *VC4Base)
     CachePostDMA(FBReq, &len, 0);
 
     return LE32(FBReq[5]) & 1;
+}
+
+LONG get_display_id(ULONG display_num, struct VC4Base *VC4Base)
+{
+    struct ExecBase *SysBase = VC4Base->vc4_SysBase;
+
+    ULONG *FBReq = VC4Base->vc4_Request;
+    ULONG len = 7*4;
+
+    FBReq[0] = LE32(4*7);
+    FBReq[1] = 0;
+    FBReq[2] = LE32(VCTAG_GET_DISPLAY_ID);
+    FBReq[3] = LE32(4);
+    FBReq[4] = 0;
+    FBReq[5] = LE32(display_num);
+    FBReq[6] = 0;
+
+    CachePreDMA(FBReq, &len, 0);
+    mbox_send(8, (ULONG)FBReq, VC4Base);
+    mbox_recv(8, VC4Base);
+    CachePostDMA(FBReq, &len, 0);
+
+    if ((LE32(FBReq[1]) == 0x80000000) &&
+        (LE32(FBReq[4]) == 0x80000004)) {
+        return (LONG)(LE32(FBReq[5]));
+    }
+
+    return (LONG)(-1);
+}
+
+BOOL set_display_power(LONG display_id, ULONG state, struct VC4Base *VC4Base)
+{
+    struct ExecBase *SysBase = VC4Base->vc4_SysBase;
+
+    ULONG *FBReq = VC4Base->vc4_Request;
+    ULONG len = 8*4;
+
+    FBReq[0] = LE32(4*8);
+    FBReq[1] = 0;
+    FBReq[2] = LE32(VCTAG_SET_DISPLAY_POWER);
+    FBReq[3] = LE32(8);
+    FBReq[4] = 0;
+    FBReq[5] = LE32(display_id);
+    FBReq[6] = LE32(state);
+    FBReq[7] = 0;
+
+    CachePreDMA(FBReq, &len, 0);
+    mbox_send(8, (ULONG)FBReq, VC4Base);
+    mbox_recv(8, VC4Base);
+    CachePostDMA(FBReq, &len, 0);
+
+    return (BOOL)(
+        (LE32(FBReq[1]) == 0x80000000) &&
+        (LE32(FBReq[4]) == 0x80000004));
 }
 
 static void putch(UBYTE data asm("d0"), APTR ignore asm("a3"))
