@@ -19,6 +19,7 @@
 #include "boardinfo.h"
 #include "mbox.h"
 #include "buddyalloc.h"
+#include "vblank.h"
 
 int mitchell_netravali(ULONG x, ULONG b, ULONG c, struct Library *MathIeeeSingBasBase)
 {
@@ -550,6 +551,7 @@ void SetPanning(REGARG(struct BoardInfo *b, "a0"), REGARG(UBYTE *addr, "a1"),
             int mouse_pos = cnt;
             cnt = mouse_pos + 1;
 
+            VBlank_DropSprite(VC4Base);
             VC4Base->vc4_MouseCoord = &displist[cnt];
             wr32le(&displist[cnt++], VC4_SpriteWord(VC4Base));
             wr32le(&displist[cnt++], POS1_H(sprite_height) | POS1_W(sprite_width));
@@ -665,6 +667,7 @@ void SetPanning(REGARG(struct BoardInfo *b, "a0"), REGARG(UBYTE *addr, "a1"),
             int mouse_pos = cnt;
             cnt = mouse_pos + 1;
 
+            VBlank_DropSprite(VC4Base);
             VC4Base->vc4_MouseCoord = &displist[cnt];
             wr32le(&displist[cnt++], VC4_SpriteWord(VC4Base));
             wr32le(&displist[cnt++], POS1_H(sprite_height) | POS1_W(sprite_width));
@@ -906,17 +909,10 @@ void SetSprite(REGARG(struct BoardInfo *b, "a0"), REGARG(BOOL enable, "d0"), REG
 
     VC4Base->vc4_SpriteVisible = enable;
 
-    if (enable) {
-        if (VC4Base->vc4_MouseCoord) {
-            wr32le(&VC4Base->vc4_MouseCoord[0], VC4_SpriteWord(VC4Base));
-        }
-    }
+    if (enable)
+        VBlank_WriteSprite(VC4Base, VC4_SpriteWord(VC4Base));
     else
-    {
-        if (VC4Base->vc4_MouseCoord) {
-            wr32le(&VC4Base->vc4_MouseCoord[0], POS0_X(-1) | POS0_Y(-1) | POS0_ALPHA(0xff));
-        }
-    }
+        VBlank_WriteSprite(VC4Base, POS0_X(-1) | POS0_Y(-1) | POS0_ALPHA(0xff));
 }
 
 void SetSpritePosition(REGARG(struct BoardInfo *b, "a0"), REGARG(WORD x, "d0"),
@@ -932,9 +928,7 @@ void SetSpritePosition(REGARG(struct BoardInfo *b, "a0"), REGARG(WORD x, "d0"),
     VC4Base->vc4_MouseX = x;
     VC4Base->vc4_MouseY = y;
 
-    if (VC4Base->vc4_MouseCoord) {
-        wr32le(&VC4Base->vc4_MouseCoord[0], VC4_SpriteWord(VC4Base));
-    }
+    VBlank_WriteSprite(VC4Base, VC4_SpriteWord(VC4Base));
 }
 
 

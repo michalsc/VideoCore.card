@@ -118,6 +118,7 @@ struct VC4Base {
     ULONG                   vc4_DisplayNum;
 
     UBYTE                   vc4_UseVBlank;
+    ULONG                   vc4_VBlankPV;
     APTR                    vc4_GIC400Base;
     ULONG                   vc4_VBlankIrq;
     struct Interrupt *      vc4_VBlankInterrupt;
