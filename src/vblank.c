@@ -6,9 +6,11 @@
 
       VC6 (BCM2711)       a SPI of the GIC-400, delivered to a 68k handler by gic400.library (which Emu68 has in
                           its ROM).
-      VC4 (BCM2836/2837)  a GPU interrupt of the ARM interrupt controller. Emu68 turns any ARM interrupt into
-                          INTB_EXTER, so the handler is a server of that chain and the interrupt is enabled in the
-                          controller.
+      VC4 (BCM2837)       a GPU interrupt of the ARM interrupt controller, delivered to a 68k handler by
+                          arm-intc.library (a disk library, in LIBS:). It opens only where that controller is
+                          the one of the device tree: Pi 3 and Pi Zero 2.
+
+    Without the library of its family the driver works on, without the interrupt.
 
     The handler acknowledges it and causes the soft interrupt of rtg.library, which wakes the tasks waiting in
     WaitBOVP() / WaitTOF() and serves the double buffering.
@@ -25,6 +27,8 @@
 #include <proto/exec.h>
 #include <proto/devicetree.h>
 #include <proto/gic400.h>
+#include <proto/arm-intc.h>
+#include <libraries/arm-intc.h>
 
 #include <stdint.h>
 #include <common/compiler.h>
@@ -45,16 +49,6 @@
 #define PV_INT_VFP_START    (1UL << 7)      /* start of the vertical front porch: the picture is over */
 
 /*
-    ARM interrupt controller of the BCM2836/2837 (irq-bcm2835.c), whose GPU interrupts the local controller of
-    the cores passes on to the ARM. One enable and one disable register per bank, write 1 to act.
-*/
-#define ARMCTRL_NODE        "/soc/interrupt-controller@7e00b200"
-#define ARMCTRL_COMPATIBLE  "brcm,bcm2836-armctrl-ic"
-#define ARMCTRL_BASE        0xf200b200
-#define ARMCTRL_ENABLE_1    0x10            /* bank 1, bank 2 follows at +4 */
-#define ARMCTRL_DISABLE_1   0x1c            /* bank 1, bank 2 follows at +4 */
-
-/*
     gic400.library 1.3 is the first one which finds the GIC through the interrupt-parent of the device tree.
     AddIntServerEx() and RemIntServerEx() have the same LVOs and registers since 1.0 and return 0 on success.
 */
@@ -64,8 +58,6 @@
 
 /* Reads of the pixelvalve while waiting for the first interrupt: about 20 ms, a few frames */
 #define VBLANK_TEST_READS   1000000
-
-int _strcmp(const char *s1, const char *s2);
 
 static inline ULONG PV_Read(struct VC4Base *VC4Base, ULONG reg)
 {
@@ -77,82 +69,17 @@ static inline void PV_Write(struct VC4Base *VC4Base, ULONG reg, ULONG value)
     wr32le((volatile uint32_t *)(VC4Base->vc4_VBlankPV + reg), value);
 }
 
-/* Acts on a GPU interrupt of the ARM controller: reg is ARMCTRL_ENABLE_1 or ARMCTRL_DISABLE_1, irq is
-   bank << 5 | bit as VBlank_FindIrq() gives it */
-static inline void ARMCtrl_Write(ULONG reg, ULONG irq)
+/* No vertical blank raised nor pending: the state the pixelvalve must be in before its line is enabled */
+static void VBlank_Quiet(struct VC4Base *VC4Base)
 {
-    wr32le((volatile uint32_t *)(ARMCTRL_BASE + reg + ((irq >> 5) - 1) * 4), 1UL << (irq & 31));
-}
-
-/*
-    The interrupt of the pixelvalve, from its "interrupts" property, 0 when it cannot be found.
-      VC6: type, number, flags. A SPI (type 0) has the GIC id number + 32.
-      VC4: bank, bit. Banks 1 and 2 are the GPU interrupts, returned as bank << 5 | bit.
-*/
-static ULONG VBlank_FindIrq(struct VC4Base *VC4Base)
-{
-    APTR DeviceTreeBase = VC4Base->vc4_DeviceTreeBase;
-    ULONG irq = 0;
-    APTR key = DT_OpenKey(VC4Base->vc4_VideoCore6 ? PV2_NODE_VC6 : PV2_NODE_VC4);
-
-    if (key != NULL)
-    {
-        APTR prop = DT_FindProperty(key, "interrupts");
-
-        if (VC4Base->vc4_VideoCore6)
-        {
-            if (prop != NULL && DT_GetPropLen(prop) >= 3 * sizeof(ULONG))
-            {
-                const ULONG *cells = DT_GetPropValue(prop);
-
-                if (cells[0] == 0)
-                    irq = cells[1] + 32;
-            }
-        }
-        else
-        {
-            if (prop != NULL && DT_GetPropLen(prop) >= 2 * sizeof(ULONG))
-            {
-                const ULONG *cells = DT_GetPropValue(prop);
-
-                if ((cells[0] == 1 || cells[0] == 2) && cells[1] < 32)
-                    irq = (cells[0] << 5) | cells[1];
-            }
-        }
-
-        DT_CloseKey(key);
-    }
-
-    return irq;
-}
-
-/*
-    The VC4 interrupt needs the ARM controller of the BCM2836/2837, which Emu68 routes to the 68k through the
-    local controller of the cores: Pi 3 and Pi Zero 2 (BCM2837 / RP3A0). The BCM2835 of the Pi Zero and Zero W
-    has neither and is left on polling.
-*/
-static BOOL VBlank_HasARMCtrl(struct VC4Base *VC4Base)
-{
-    APTR DeviceTreeBase = VC4Base->vc4_DeviceTreeBase;
-    BOOL found = FALSE;
-    APTR key = DT_OpenKey(ARMCTRL_NODE);
-
-    if (key != NULL)
-    {
-        const char *comp = DT_GetPropValue(DT_FindProperty(key, "compatible"));
-
-        if (comp != NULL && _strcmp(ARMCTRL_COMPATIBLE, comp) == 0)
-            found = TRUE;
-
-        DT_CloseKey(key);
-    }
-
-    return found;
+    PV_Write(VC4Base, PV_INTEN, 0);
+    PV_Write(VC4Base, PV_INTSTAT, PV_INT_VFP_START);
 }
 
 /*
     Called at the interrupt of the pixelvalve, with the BoardInfo in a1 (the is_Data of the interrupt), in
-    interrupt context: nothing which can wait. On the VC6 by gic400.library, on the VC4 by the stub below.
+    interrupt context: nothing which can wait. On the VC6 by gic400.library, on the VC4 by arm-intc.library
+    through the stub below.
 */
 static ULONG VBlank_Interrupt(REGARG(struct BoardInfo *bi, "a1"))
 {
@@ -189,16 +116,16 @@ static ULONG VBlank_Interrupt(REGARG(struct BoardInfo *bi, "a1"))
 }
 
 /*
-    The server of INTB_EXTER on the VC4. exec tests the Z flag after each server of the chain, which C code does
-    not set. The chain is shared with the CIA-B and the other ARM interrupts, so it always goes on: Z set.
+    The server of arm-intc.library on the VC4. The library tests the Z flag on return, which the epilogue of C
+    code may set again: claimed is d0 non zero with Z clear, not claimed is d0 zero with Z set.
 */
-void VBlank_ExterServer(void);
+void VBlank_AICServer(void);
 asm(
     "       .text                       \n"
     "       .even                       \n"
-    "_VBlank_ExterServer:               \n"
+    "_VBlank_AICServer:                 \n"
     "       jsr     _VBlank_Interrupt   \n"     /* is_Data is in a1 already */
-    "       moveq   #0,d0               \n"
+    "       tst.l   d0                  \n"
     "       rts                         \n"
 );
 
@@ -251,24 +178,46 @@ void VBlank_WriteSprite(struct VC4Base *VC4Base, ULONG word)
     VBlank_Arm(VC4Base);
 }
 
-/* Registers the handler of the interrupt irq, see the top of the file. Returns TRUE when it is in place. */
-static BOOL VBlank_AddServer(struct VC4Base *VC4Base, struct BoardInfo *bi, ULONG irq)
+/*
+    VC6: the interrupt of the pixelvalve, from its "interrupts" property: type, number, flags. A SPI (type 0) has
+    the GIC id number + 32. 0 when it cannot be found.
+*/
+static ULONG VBlank_FindIrqVC6(struct VC4Base *VC4Base)
+{
+    APTR DeviceTreeBase = VC4Base->vc4_DeviceTreeBase;
+    ULONG irq = 0;
+    APTR key = DT_OpenKey(PV2_NODE_VC6);
+
+    if (key != NULL)
+    {
+        APTR prop = DT_FindProperty(key, "interrupts");
+
+        if (prop != NULL && DT_GetPropLen(prop) >= 3 * sizeof(ULONG))
+        {
+            const ULONG *cells = DT_GetPropValue(prop);
+
+            if (cells[0] == 0)
+                irq = cells[1] + 32;
+        }
+
+        DT_CloseKey(key);
+    }
+
+    return irq;
+}
+
+/* VC6: registers the handler with gic400.library. Returns TRUE when it is in place. */
+static BOOL VBlank_AddServerVC6(struct VC4Base *VC4Base, struct BoardInfo *bi)
 {
     struct ExecBase *SysBase = VC4Base->vc4_SysBase;
     struct Library *GIC400_Base;
+    ULONG irq;
 
-    if (!VC4Base->vc4_VideoCore6)
+    irq = VBlank_FindIrqVC6(VC4Base);
+    if (irq == 0)
     {
-        bi->HardInterrupt.is_Node.ln_Type = NT_INTERRUPT;
-        bi->HardInterrupt.is_Node.ln_Pri = 0;
-        bi->HardInterrupt.is_Node.ln_Name = bi->BoardName;
-        bi->HardInterrupt.is_Code = (void (*)())VBlank_ExterServer;
-
-        /* The server first, then the controller. The pixelvalve raises nothing before SetInterrupt() */
-        AddIntServer(INTB_EXTER, &bi->HardInterrupt);
-        ARMCtrl_Write(ARMCTRL_ENABLE_1, irq);
-
-        return TRUE;
+        bug("[VC] VBlank: no interrupt in the device tree\n");
+        return FALSE;
     }
 
     GIC400_Base = OpenLibrary((CONST_STRPTR)GIC400_NAME, 0);
@@ -289,7 +238,8 @@ static BOOL VBlank_AddServer(struct VC4Base *VC4Base, struct BoardInfo *bi, ULON
 
     bi->HardInterrupt.is_Code = (void (*)())VBlank_Interrupt;
 
-    /* Level triggered, priority 0. The pixelvalve raises nothing before SetInterrupt() */
+    /* Level triggered, priority 0 */
+    VBlank_Quiet(VC4Base);
     if (AddIntServerEx(irq, 0, FALSE, &bi->HardInterrupt) != 0)
     {
         bug("[VC] VBlank: cannot register interrupt %ld\n", irq);
@@ -299,59 +249,110 @@ static BOOL VBlank_AddServer(struct VC4Base *VC4Base, struct BoardInfo *bi, ULON
 
     /* gic400.library stays open for as long as the handler is registered */
     VC4Base->vc4_GIC400Base = GIC400_Base;
+    VC4Base->vc4_VBlankIrq = irq;
 
     return TRUE;
 }
 
-/* Undoes VBlank_AddServer(), in the reverse order */
-static void VBlank_RemServer(struct VC4Base *VC4Base, ULONG irq, struct Interrupt *interrupt)
+/* VC6: undoes VBlank_AddServerVC6(), in the reverse order */
+static void VBlank_RemServerVC6(struct VC4Base *VC4Base, struct Interrupt *interrupt)
 {
     struct ExecBase *SysBase = VC4Base->vc4_SysBase;
     struct Library *GIC400_Base = VC4Base->vc4_GIC400Base;
 
-    if (GIC400_Base != NULL)
+    RemIntServerEx(VC4Base->vc4_VBlankIrq, interrupt);
+    CloseLibrary(GIC400_Base);
+    VC4Base->vc4_GIC400Base = NULL;
+}
+
+/* VC4: registers the handler with arm-intc.library. Returns TRUE when it is in place. */
+static BOOL VBlank_AddServerVC4(struct VC4Base *VC4Base, struct BoardInfo *bi)
+{
+    struct ExecBase *SysBase = VC4Base->vc4_SysBase;
+    APTR DeviceTreeBase = VC4Base->vc4_DeviceTreeBase;
+    struct Library *ArmIntcBase;
+    APTR key;
+    LONG irq = AICERR_NODT;
+
+    /* It opens only on the controller it knows: on any other VC4 there is no interrupt */
+    ArmIntcBase = OpenLibrary((CONST_STRPTR)ARMINTCNAME, 0);
+    if (ArmIntcBase == NULL)
     {
-        RemIntServerEx(irq, interrupt);
-        CloseLibrary(GIC400_Base);
-        VC4Base->vc4_GIC400Base = NULL;
+        bug("[VC] VBlank: no %s\n", (ULONG)ARMINTCNAME);
+        return FALSE;
     }
+
+    key = DT_OpenKey(PV2_NODE_VC4);
+    if (key != NULL)
+    {
+        irq = AIC_GetInterrupt(key, 0);
+        DT_CloseKey(key);
+    }
+
+    if (irq < 0)
+    {
+        bug("[VC] VBlank: no interrupt in the device tree (%ld)\n", irq);
+        CloseLibrary(ArmIntcBase);
+        return FALSE;
+    }
+
+    bi->HardInterrupt.is_Node.ln_Type = NT_INTERRUPT;
+    bi->HardInterrupt.is_Node.ln_Pri = 0;
+    bi->HardInterrupt.is_Node.ln_Name = bi->BoardName;
+    bi->HardInterrupt.is_Code = (void (*)())VBlank_AICServer;
+
+    /* The first server of a line enables it at once: the pixelvalve must be quiet first */
+    VBlank_Quiet(VC4Base);
+    if (AIC_AddIntServer(irq, &bi->HardInterrupt) != AICERR_OK)
+    {
+        bug("[VC] VBlank: cannot register interrupt %ld\n", irq);
+        CloseLibrary(ArmIntcBase);
+        return FALSE;
+    }
+
+    /* arm-intc.library stays open for as long as the handler is registered */
+    VC4Base->vc4_ArmIntcBase = ArmIntcBase;
+    VC4Base->vc4_VBlankIrq = irq;
+
+    return TRUE;
+}
+
+/* VC4: undoes VBlank_AddServerVC4(), in the reverse order */
+static void VBlank_RemServerVC4(struct VC4Base *VC4Base, struct Interrupt *interrupt)
+{
+    struct ExecBase *SysBase = VC4Base->vc4_SysBase;
+    struct Library *ArmIntcBase = VC4Base->vc4_ArmIntcBase;
+
+    AIC_RemIntServer(VC4Base->vc4_VBlankIrq, interrupt);
+    CloseLibrary(ArmIntcBase);
+    VC4Base->vc4_ArmIntcBase = NULL;
+}
+
+static void VBlank_RemServer(struct VC4Base *VC4Base, struct Interrupt *interrupt)
+{
+    if (VC4Base->vc4_VideoCore6)
+        VBlank_RemServerVC6(VC4Base, interrupt);
     else
-    {
-        ARMCtrl_Write(ARMCTRL_DISABLE_1, irq);
-        RemIntServer(INTB_EXTER, interrupt);
-    }
+        VBlank_RemServerVC4(VC4Base, interrupt);
 }
 
 BOOL VBlank_Init(struct BoardInfo *bi)
 {
     struct VC4Base *VC4Base = (struct VC4Base *)bi->CardBase;
-    ULONG irq;
+    BOOL added;
 
-    if (VC4Base->vc4_VideoCore6)
-        VC4Base->vc4_VBlankPV = PV2_BASE_VC6;
-    else if (VBlank_HasARMCtrl(VC4Base))
-        VC4Base->vc4_VBlankPV = PV2_BASE_VC4;
-    else
-    {
-        bug("[VC] VBlank: no ARM interrupt controller of the BCM2836/2837\n");
-        return FALSE;
-    }
-
-    irq = VBlank_FindIrq(VC4Base);
-    if (irq == 0)
-    {
-        bug("[VC] VBlank: no interrupt in the device tree\n");
-        return FALSE;
-    }
+    VC4Base->vc4_VBlankPV = VC4Base->vc4_VideoCore6 ? PV2_BASE_VC6 : PV2_BASE_VC4;
 
     /* An OS restart resets neither the interrupt controller nor the pixelvalve: PV_INTEN may still be armed by
-       the previous session. Start from scratch. */
-    PV_Write(VC4Base, PV_INTEN, 0);
-    PV_Write(VC4Base, PV_INTSTAT, PV_INT_VFP_START);
-
+       the previous session. Each family quiets the pixelvalve before it registers the handler. */
     bi->HardInterrupt.is_Data = bi;
 
-    if (!VBlank_AddServer(VC4Base, bi, irq))
+    if (VC4Base->vc4_VideoCore6)
+        added = VBlank_AddServerVC6(VC4Base, bi);
+    else
+        added = VBlank_AddServerVC4(VC4Base, bi);
+
+    if (!added)
         return FALSE;
 
     /* Being registered does not mean that the interrupt arrives: let the pixelvalve raise one and see it come.
@@ -367,20 +368,19 @@ BOOL VBlank_Init(struct BoardInfo *bi)
 
     if (VC4Base->vc4_VBlankCount == 0)
     {
-        bug("[VC] VBlank: no interrupt %ld, staying on polling\n", irq);
-        VBlank_RemServer(VC4Base, irq, &bi->HardInterrupt);
+        bug("[VC] VBlank: no interrupt %ld, staying on polling\n", VC4Base->vc4_VBlankIrq);
+        VBlank_RemServer(VC4Base, &bi->HardInterrupt);
         return FALSE;
     }
 
     /* The last step: tell rtg.library */
-    VC4Base->vc4_VBlankIrq = irq;
     VC4Base->vc4_VBlankInterrupt = &bi->HardInterrupt;
 
     bi->SetInterrupt = (void *)VBlank_SetInterrupt;
     bi->Flags |= BIF_VBLANKINTERRUPT;
 
-    /* VC6: GIC id. VC4: bank << 5 | bit of the ARM controller */
-    bug("[VC] VBlank: interrupt %ld of the pixelvalve of HDMI0\n", irq);
+    /* VC6: GIC id. VC4: line of arm-intc.library, bank * 32 + bit */
+    bug("[VC] VBlank: interrupt %ld of the pixelvalve of HDMI0\n", VC4Base->vc4_VBlankIrq);
 
     return TRUE;
 }
@@ -391,7 +391,7 @@ void VBlank_Exit(struct VC4Base *VC4Base)
         return;
 
     PV_Write(VC4Base, PV_INTEN, 0);
-    VBlank_RemServer(VC4Base, VC4Base->vc4_VBlankIrq, VC4Base->vc4_VBlankInterrupt);
+    VBlank_RemServer(VC4Base, VC4Base->vc4_VBlankInterrupt);
 
     VC4Base->vc4_VBlankInterrupt = NULL;
 }

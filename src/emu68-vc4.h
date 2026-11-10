@@ -120,6 +120,7 @@ struct VC4Base {
     UBYTE                   vc4_UseVBlank;
     ULONG                   vc4_VBlankPV;
     APTR                    vc4_GIC400Base;
+    APTR                    vc4_ArmIntcBase;
     ULONG                   vc4_VBlankIrq;
     struct Interrupt *      vc4_VBlankInterrupt;
     volatile ULONG          vc4_VBlankCount;
