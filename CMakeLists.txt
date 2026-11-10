@@ -15,6 +15,12 @@ if(NOT TARGET gic400_headers)
     add_library(gic400_headers INTERFACE)
     target_include_directories(gic400_headers INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/gic400.library/include)
 endif()
+# Only the interface of arm-intc.library is needed, the library itself is in LIBS:. sfdc generates its headers
+if(NOT TARGET arm_intc)
+    include(arm-intc.library/cmake/sfdc.cmake)
+    sfdc(${CMAKE_CURRENT_SOURCE_DIR}/arm-intc.library/sfd/arm-intc_lib.sfd)
+    target_include_directories(arm_intc INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/arm-intc.library/include)
+endif()
 
 add_executable(VideoCore.card
     src/main.c
@@ -33,7 +39,7 @@ target_include_directories(VideoCore.card PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/in
 target_compile_options(VideoCore.card PRIVATE -Os -m68040 -fomit-frame-pointer)
 target_compile_definitions(VideoCore.card PRIVATE VERSION_STRING="${VERSTRING}")
 target_link_options(VideoCore.card PRIVATE -ffreestanding -nostdlib -nostartfiles -Wl,-e,__start)
-target_link_libraries(VideoCore.card devicetree gic400_headers amiga unicam)
+target_link_libraries(VideoCore.card devicetree gic400_headers arm_intc amiga unicam)
 target_compile_definitions(VideoCore.card PUBLIC CARD_NAME="VideoCore.card")
 
 install(PROGRAMS ${CMAKE_CURRENT_BINARY_DIR}/VideoCore.card DESTINATION VideoCore/)

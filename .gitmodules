@@ -7,3 +7,6 @@
 [submodule "gic400.library"]
 	path = gic400.library
 	url = https://github.com/michalsc/gic400.library.git
+[submodule "arm-intc.library"]
+	path = arm-intc.library
+	url = https://github.com/flype44/arm-intc.library.git
